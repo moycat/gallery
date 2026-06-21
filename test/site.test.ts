@@ -138,6 +138,11 @@ describe("site rendering", () => {
   it("renders accessible modal and navigation structure", () => {
     const html = renderGalleryDocument(gallery);
 
+    expect(html).toContain('<header id="header" data-behavior="1">');
+    expect(html).toContain('id="btn-open-sidebar"');
+    expect(html).toContain("data-sidebar-open");
+    expect(html).toContain("data-sidebar");
+    expect(html).toContain("data-gallery-main");
     expect(html).toContain('aria-label="主导航"');
     expect(html).toContain('aria-label="照片详情"');
     expect(html).toContain("data-photo-dialog");
@@ -169,6 +174,18 @@ describe("site rendering", () => {
     expect(galleryCss).toContain("filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.1))");
     expect(galleryCss).toContain("transform: translate(0, -0.4rem)");
     expect(galleryCss).toContain("height: 45px");
+    expect(galleryCss).not.toContain(".sidebar-buttons:first-child");
+    expect(galleryCss).toContain(".sidebar-button:nth-child(odd) {\n    padding-right: 0;\n  }");
+    expect(galleryCss).toContain("@media (max-width: 1023px)");
+    expect(galleryCss).toContain("--gallery-sidebar: 75px");
+    expect(galleryCss).toContain("@media (max-width: 767px)");
+    expect(galleryCss).toContain("left: -250px");
+    expect(galleryCss).toContain(".gallery-sidebar.pushed");
+    expect(galleryCss).toContain("#header.pushed");
+    expect(galleryCss).toContain(".gallery-main.pushed");
+    expect(galleryClientJs).toContain("[data-sidebar-open]");
+    expect(galleryClientJs).toContain('classList.add("pushed")');
+    expect(galleryClientJs).toContain('classList.remove("pushed")');
   });
 
   it("closes modals when the user clicks outside their card", () => {

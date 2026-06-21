@@ -153,9 +153,10 @@ function renderDocument(options: {
     <script src="/assets/gallery.js" defer></script>
   </head>
   <body data-gallery-root="true">
+    ${renderHeader(options.gallery?.title ?? options.title)}
     <div class="gallery-shell">
       ${renderSidebar()}
-      <main class="gallery-main">
+      <main class="gallery-main" data-gallery-main>
         ${options.content}
       </main>
     </div>
@@ -165,8 +166,19 @@ function renderDocument(options: {
 `;
 }
 
+function renderHeader(title: string): string {
+  return `<header id="header" data-behavior="1">
+      <button id="btn-open-sidebar" type="button" aria-label="打开导航" data-sidebar-open>
+        <i class="fa fa-lg fa-bars" aria-hidden="true"></i>
+      </button>
+      <div class="header-title">
+        <a class="header-title-link" href="/" aria-label="首页">${escapeHtml(title)}</a>
+      </div>
+    </header>`;
+}
+
 function renderSidebar(): string {
-  return `<aside class="gallery-sidebar">
+  return `<nav id="sidebar" class="gallery-sidebar" data-sidebar data-behavior="1" aria-label="主导航">
         <div class="gallery-sidebar__inner sidebar-container">
           <div class="gallery-sidebar__profile sidebar-profile">
             <a href="/" aria-label="首页">
@@ -175,11 +187,9 @@ function renderSidebar(): string {
             <h4 class="gallery-sidebar__name sidebar-profile-name">Moycat</h4>
             <h5 class="gallery-sidebar__intro sidebar-profile-bio">${escapeHtml(sidebarIntro)}</h5>
           </div>
-          <nav class="gallery-nav" aria-label="主导航">
-            ${navigationGroups.map(renderNavigationGroup).join("\n")}
-          </nav>
+          ${navigationGroups.map(renderNavigationGroup).join("\n")}
         </div>
-      </aside>`;
+      </nav>`;
 }
 
 function renderNavigationGroup(items: NavigationItem[]): string {
