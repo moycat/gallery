@@ -30,6 +30,10 @@ export async function writeStaticAssets(outputDir: string): Promise<void> {
     join(root, "assets", "brand", "avatar.webp"),
     join(outputDir, "assets", "images", "avatar.webp")
   );
+  await copyFile(
+    join(root, "assets", "brand", "cover.webp"),
+    join(outputDir, "assets", "images", "cover.webp")
+  );
 
   await copyFontAwesome(outputDir);
 }

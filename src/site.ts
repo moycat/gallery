@@ -32,9 +32,9 @@ const aboutBioHtml = `<p>这里是 Moycat 👋<br>
 const navigationGroups: NavigationItem[][] = [
   [
     { href: "/", icon: "fa fa-home", label: "首页" },
-    { href: "/albums/", icon: "fa fa-images", label: "相簿" },
+    { href: "/albums/", icon: "fa fa-archive", label: "相簿" },
     { href: "#about", icon: "fa fa-question", label: "关于" },
-    { href: "https://blog.moy.cat", icon: "fa fa-feather-alt", label: "博客" }
+    { href: "https://blog.moy.cat", icon: "fa fa-rss", label: "博客" }
   ],
   [
     { href: "https://t.me/moycat_official", icon: "fa fa-podcast", label: "频道" },
@@ -154,6 +154,7 @@ function renderDocument(options: {
   </head>
   <body data-gallery-root="true">
     ${renderHeader(options.gallery?.title ?? options.title)}
+    ${renderCover()}
     <div class="gallery-shell">
       ${renderSidebar()}
       <main class="gallery-main" data-gallery-main>
@@ -164,6 +165,10 @@ function renderDocument(options: {
   </body>
 </html>
 `;
+}
+
+function renderCover(): string {
+  return `<div id="cover" style="background-image:url('/assets/images/cover.webp');"></div>`;
 }
 
 function renderHeader(title: string): string {

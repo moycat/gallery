@@ -124,6 +124,9 @@ describe("buildGallery", () => {
       readFile(join(outputDir, "assets", "images", "avatar.webp"))
     ).resolves.toBeInstanceOf(Buffer);
     await expect(
+      readFile(join(outputDir, "assets", "images", "cover.webp"))
+    ).resolves.toBeInstanceOf(Buffer);
+    await expect(
       readFile(join(outputDir, "assets", "vendor", "fontawesome", "webfonts", "fa-solid-900.woff2"))
     ).resolves.toBeInstanceOf(Buffer);
 

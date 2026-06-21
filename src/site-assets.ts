@@ -43,6 +43,19 @@ img {
   max-width: 100%;
 }
 
+#cover {
+  background-image: url('/assets/images/cover.webp');
+  background-repeat: no-repeat;
+  background-size: cover;
+  height: 100%;
+  left: 0;
+  pointer-events: none;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  z-index: 0;
+}
+
 #header {
   background: #fff;
   border: 1px solid var(--gallery-line);
@@ -93,14 +106,16 @@ img {
   display: grid;
   grid-template-columns: var(--gallery-sidebar) minmax(0, 1fr);
   min-height: 100vh;
+  position: relative;
+  z-index: 1;
 }
 
 .gallery-sidebar {
-  background: #fff;
-  border-right: 1px solid var(--gallery-line);
-  color: #000;
+  background: rgba(17, 26, 35, 0);
+  color: rgba(255, 255, 255, 0.9);
   display: flex;
   flex-direction: column;
+  font-family: "Crimson Text", "Noto Color Emoji", "Noto Serif SC", serif;
   height: 100%;
   justify-content: center;
   overflow: auto;
@@ -120,9 +135,9 @@ img {
 }
 
 .gallery-sidebar__profile {
-  color: #000;
-  padding-bottom: 7.5px;
+  color: white;
   margin-bottom: 15px;
+  padding-bottom: 7.5px;
   text-align: center;
 }
 
@@ -143,20 +158,23 @@ img {
 }
 
 .gallery-sidebar__name {
-  color: #000;
+  color: white;
   font-family: "Noto Serif", "Noto Color Emoji", "Noto Serif SC", serif;
   font-size: 2.4em;
   font-weight: 700;
   line-height: 1;
   margin: 0.5em 0;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
 }
 
-.gallery-sidebar__intro {
-  color: #000;
+.sidebar-profile-bio {
+  color: white;
+  font-family: "Noto Serif", "Noto Color Emoji", "Noto Serif SC", serif;
   font-size: 1.6rem;
   font-weight: 400;
   line-height: 1.45;
   margin: 1em 0 0.5em;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
 }
 
 .sidebar-buttons {
@@ -183,7 +201,7 @@ img {
 }
 
 .sidebar-button-link {
-  color: #000;
+  color: rgba(255, 255, 255, 0.9);
   display: block;
   height: 100%;
   padding-top: 0;
@@ -194,8 +212,7 @@ img {
 
 .sidebar-button-link:hover,
 .sidebar-button-link:active {
-  background: rgba(52, 158, 243, 0.08);
-  color: var(--gallery-link);
+  color: white;
   text-decoration: none;
 }
 
@@ -222,11 +239,14 @@ img {
   text-overflow: ellipsis;
   vertical-align: middle;
   white-space: nowrap;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
   width: auto;
 }
 
 .gallery-main {
+  background: var(--gallery-bg);
   grid-column: 2;
+  min-height: 100vh;
   min-width: 0;
   padding: 5rem;
   transition: transform 250ms ease-in-out;
@@ -570,9 +590,10 @@ img {
 
   .gallery-sidebar__name {
     font-size: 2rem;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
   }
 
-  .gallery-sidebar__intro {
+  .sidebar-profile-bio {
     display: none;
   }
 
@@ -605,6 +626,7 @@ img {
 
   .sidebar-button-desc {
     display: inline-block;
+    text-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
   }
 }
 
@@ -659,7 +681,6 @@ img {
   }
 
   .gallery-sidebar {
-    border-right: 0;
     display: block;
     height: 100%;
     left: -250px;
@@ -693,9 +714,10 @@ img {
     display: block;
     font-size: 2rem;
     margin: 0.5em 0;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
   }
 
-  .gallery-sidebar__intro {
+  .sidebar-profile-bio {
     display: none;
   }
 
@@ -726,6 +748,7 @@ img {
 
   .sidebar-button-desc {
     display: inline-block;
+    text-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
   }
 
   .gallery-shell {

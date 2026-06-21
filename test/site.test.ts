@@ -106,6 +106,12 @@ describe("site rendering", () => {
     expect(html).toContain("邮箱");
     expect(html).toContain("博客");
     expect(html).toContain("https://blog.moy.cat");
+    expect(html).toContain(
+      '<div id="cover" style="background-image:url(\'/assets/images/cover.webp\');"></div>'
+    );
+    expect(html).toContain('class="sidebar-button-icon fa fa-home"');
+    expect(html).toContain('class="sidebar-button-icon fa fa-archive"');
+    expect(html).toContain('class="sidebar-button-icon fa fa-question"');
     expect(html).toContain('loading="lazy"');
     expect(html).toContain('decoding="async"');
     expect(html).toContain('data-photo-id="cats-miso"');
@@ -172,14 +178,26 @@ describe("site rendering", () => {
 
   it("keeps the fixed sidebar from covering the gallery content", () => {
     expect(galleryCss).toContain("grid-column: 2");
+    expect(galleryCss).toMatch(/\.gallery-main \{[^}]*min-height: 100vh/);
   });
 
   it("keeps sidebar interactions aligned with the blog", () => {
     expect(galleryCss).toContain("filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.1))");
     expect(galleryCss).toContain("transform: translate(0, -0.4rem)");
     expect(galleryCss).toContain("height: 45px");
-    expect(galleryCss).not.toContain(".sidebar-buttons:first-child");
-    expect(galleryCss).toContain(".sidebar-button:nth-child(odd) {\n    padding-right: 0;\n  }");
+    expect(galleryCss).toContain("#cover");
+    expect(galleryCss).toContain("background-image: url('/assets/images/cover.webp')");
+    expect(galleryCss).toContain("pointer-events: none");
+    expect(galleryCss).toContain("z-index: 0");
+    expect(galleryCss).toContain("background: var(--gallery-bg)");
+    expect(galleryCss).toContain("background: rgba(17, 26, 35, 0)");
+    expect(galleryCss).toContain("color: rgba(255, 255, 255, 0.9)");
+    expect(galleryCss).toContain("color: white");
+    expect(galleryCss).toContain("text-shadow: 0 0 2px rgba(0, 0, 0, 0.3)");
+    expect(galleryCss).toContain(".sidebar-profile-bio");
+    expect(galleryCss).toContain(
+      '.sidebar-profile-bio {\n  color: white;\n  font-family: "Noto Serif", "Noto Color Emoji", "Noto Serif SC", serif;'
+    );
     expect(galleryCss).toContain("@media (max-width: 1023px)");
     expect(galleryCss).toContain("--gallery-sidebar: 75px");
     expect(galleryCss).toContain("@media (max-width: 767px)");
