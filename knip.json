@@ -1,0 +1,3 @@
+{
+  "ignoreDependencies": ["exifr", "fast-glob", "sharp"]
+}
