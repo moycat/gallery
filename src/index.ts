@@ -10,11 +10,20 @@ export {
   uploadOriginalsToS3
 } from "./s3-upload.js";
 export { readGallerySource, updateGallerySource } from "./source.js";
-export { buildStaticSite, renderGalleryDocument, renderIndexDocument } from "./site.js";
+export {
+  buildStaticSite,
+  renderAboutDocument,
+  renderAlbumDocument,
+  renderAlbumsDocument,
+  renderGalleryDocument,
+  renderIndexDocument
+} from "./site.js";
 export type {
   AlbumMetadata,
   BuiltGallery,
+  BuiltGalleryAlbum,
   BuiltGalleryPhoto,
+  BuiltGalleryThumbnail,
   GalleryConfig,
   GalleryConfigInput,
   GallerySource,

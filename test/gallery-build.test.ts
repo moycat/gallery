@@ -25,7 +25,7 @@ async function createTempWorkspace(): Promise<{ outputDir: string; sourceDir: st
 }
 
 describe("buildGallery", () => {
-  it("updates metadata, generates 1080px WebP thumbnails, copies originals, and renders album UI", async () => {
+  it("updates metadata, generates thumbnails, copies originals, and renders album routes", async () => {
     const { outputDir, sourceDir } = await createTempWorkspace();
     await writeFixtureImage(join(sourceDir, "test.jpg"), { width: 1600, height: 900 });
     await writeFixtureImage(join(sourceDir, "abc", "haha.png"), {
@@ -53,8 +53,17 @@ describe("buildGallery", () => {
     expect(html).toContain("Album ABC");
     expect(html).toContain("Square Photo");
     expect(html).toContain("Album item");
-    expect(html).toContain('href="assets/originals/abc-haha.png"');
-    expect(html).toContain('src="assets/photos/abc-haha.webp"');
+    expect(html).toContain('href="/assets/originals/abc-haha.png"');
+    expect(html).toContain('src="/assets/photos/abc-haha-medium.webp"');
+    await expect(readFile(join(outputDir, "albums", "index.html"), "utf8")).resolves.toContain(
+      "Album ABC"
+    );
+    await expect(
+      readFile(join(outputDir, "albums", "abc", "index.html"), "utf8")
+    ).resolves.toContain("Square Photo");
+    await expect(readFile(join(outputDir, "about", "index.html"), "utf8")).resolves.toContain(
+      "关于"
+    );
   });
 
   it("links originals to configured storage public URLs without copying originals into Pages output", async () => {
@@ -77,6 +86,40 @@ describe("buildGallery", () => {
     await expect(
       readFile(join(outputDir, "assets", "originals", "test.jpg"), "utf8")
     ).rejects.toThrow("ENOENT");
+  });
+
+  it("copies shared static assets for the generated site", async () => {
+    const { outputDir, sourceDir } = await createTempWorkspace();
+    await writeFixtureImage(join(sourceDir, "test.jpg"));
+    await writeFile(
+      join(sourceDir, "test.yml"),
+      "exif:\n  capturedAt: '2024-01-01T00:00:00Z'\n",
+      "utf8"
+    );
+
+    await buildGallery({ outputDir, sourceDir, title: "Moycat Gallery" });
+
+    await expect(readFile(join(outputDir, "assets", "gallery.css"), "utf8")).resolves.toContain(
+      "font-family"
+    );
+    await expect(readFile(join(outputDir, "assets", "gallery.js"), "utf8")).resolves.toContain(
+      "gallery-photo-data"
+    );
+    await expect(readFile(join(outputDir, "favicon.ico"))).resolves.toBeInstanceOf(Buffer);
+    await expect(
+      readFile(join(outputDir, "assets", "images", "avatar.webp"))
+    ).resolves.toBeInstanceOf(Buffer);
+    await expect(
+      readFile(join(outputDir, "assets", "vendor", "fontawesome", "webfonts", "fa-solid-900.woff2"))
+    ).resolves.toBeInstanceOf(Buffer);
+
+    const manifest = JSON.parse(await readFile(join(outputDir, "site.webmanifest"), "utf8")) as {
+      icons: { src: string }[];
+    };
+
+    for (const icon of manifest.icons) {
+      await expect(readFile(join(outputDir, icon.src))).resolves.toBeInstanceOf(Buffer);
+    }
   });
 
   it("sorts built photos by capture time descending and warns when capture time is missing", async () => {

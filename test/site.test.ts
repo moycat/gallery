@@ -1,43 +1,162 @@
 import { describe, expect, it } from "vitest";
 
-describe("buildStaticSite", () => {
-  it("renders a Cloudflare Pages-ready album document", async () => {
-    const { renderGalleryDocument } = await import("../src/site.js");
-    const html = renderGalleryDocument({
-      title: "Moycat & Friends",
-      albums: [
-        {
-          id: "abc",
-          metadataPath: "photos/abc.yml",
-          pagePath: "albums/abc/",
-          photoIds: ["abc-haha"],
-          sourceDir: "photos/abc",
-          title: "Album <ABC>",
-          weight: 1
-        }
-      ],
-      photos: [
-        {
-          id: "abc-haha",
-          albumId: "abc",
-          metadataPath: "photos/abc/haha.yml",
-          originalExtension: "jpg",
-          originalFilename: "haha.jpg",
-          originalPath: "assets/originals/abc-haha.jpg",
-          sourcePath: "photos/abc/haha.jpg",
-          thumbnailPath: "assets/photos/abc-haha.webp",
-          thumbnails: [],
-          title: "Photo & Title"
-        }
-      ],
-      unalbumedPhotoIds: []
-    });
+import {
+  renderAboutDocument,
+  renderAlbumDocument,
+  renderAlbumsDocument,
+  renderGalleryDocument
+} from "../src/site.js";
+import { galleryCss } from "../src/site-assets.js";
+import type { BuiltGallery } from "../src/types.js";
 
-    expect(html).toContain("<!doctype html>");
-    expect(html).toContain("<title>Moycat &amp; Friends</title>");
-    expect(html).toContain('data-gallery-root="true"');
-    expect(html).toContain("Album &lt;ABC&gt;");
-    expect(html).toContain("Photo &amp; Title");
-    expect(html).toContain('href="assets/originals/abc-haha.jpg"');
+const gallery: BuiltGallery = {
+  albums: [
+    {
+      coverPhotoId: "cats-miso",
+      description: "家里的猫",
+      id: "cats",
+      metadataPath: "photos/cats.yml",
+      pagePath: "albums/cats/",
+      photoIds: ["cats-miso"],
+      sourceDir: "photos/cats",
+      title: "猫"
+    }
+  ],
+  photos: [
+    {
+      albumId: "cats",
+      capturedAt: "2024-05-01T12:00:00.000Z",
+      captureTimestamp: Date.parse("2024-05-01T12:00:00.000Z"),
+      exif: {
+        camera: "FUJIFILM X100VI",
+        capturedAt: "2024-05-01T12:00:00.000Z",
+        lens: "23mm"
+      },
+      id: "cats-miso",
+      metadataPath: "photos/cats/miso.yml",
+      originalExtension: "jpg",
+      originalFilename: "miso.jpg",
+      originalPath: "assets/originals/cats-miso.jpg",
+      renderedHeight: 900,
+      renderedWidth: 1200,
+      sourcePath: "photos/cats/miso.jpg",
+      thumbnailPath: "assets/photos/cats-miso.webp",
+      thumbnails: [
+        {
+          format: "webp",
+          height: 360,
+          name: "small",
+          path: "assets/photos/cats-miso-small.webp",
+          width: 480
+        },
+        {
+          format: "webp",
+          height: 720,
+          name: "medium",
+          path: "assets/photos/cats-miso-medium.webp",
+          width: 960
+        },
+        {
+          format: "webp",
+          height: 900,
+          name: "large",
+          path: "assets/photos/cats-miso-large.webp",
+          width: 1200
+        }
+      ],
+      title: "窗边"
+    },
+    {
+      capturedAt: "2025-01-01T12:00:00.000Z",
+      captureTimestamp: Date.parse("2025-01-01T12:00:00.000Z"),
+      id: "outside",
+      metadataPath: "photos/outside.yml",
+      originalExtension: "jpg",
+      originalFilename: "outside.jpg",
+      originalPath: "assets/originals/outside.jpg",
+      renderedHeight: 900,
+      renderedWidth: 1200,
+      sourcePath: "photos/outside.jpg",
+      thumbnailPath: "assets/photos/outside.webp",
+      thumbnails: [
+        {
+          format: "webp",
+          height: 720,
+          name: "medium",
+          path: "assets/photos/outside-medium.webp",
+          width: 960
+        }
+      ],
+      title: "路上"
+    }
+  ],
+  title: "Moycat 的相册",
+  unalbumedPhotoIds: []
+};
+
+describe("site rendering", () => {
+  it("renders the home timeline as a Chinese static document", () => {
+    const html = renderGalleryDocument(gallery);
+
+    expect(html).toContain('<html lang="zh-Hans">');
+    expect(html).toContain("<title>Moycat 的相册</title>");
+    expect(html).toContain("这里存放我拍下的照片。");
+    expect(html).toContain("首页");
+    expect(html).toContain("相簿");
+    expect(html).toContain("关于");
+    expect(html).toContain("频道");
+    expect(html).toContain("GitHub");
+    expect(html).toContain("Telegram");
+    expect(html).toContain("邮箱");
+    expect(html).toContain("博客");
+    expect(html).toContain("https://blog.moy.cat");
+    expect(html).toContain('loading="lazy"');
+    expect(html).toContain('decoding="async"');
+    expect(html).toContain('data-photo-id="cats-miso"');
+    expect(html).toContain("2024年5月1日");
+    expect(html).toContain("FUJIFILM X100VI");
+    expect(html).toContain('src="/assets/photos/cats-miso-medium.webp"');
+    expect(html).toContain('srcset="/assets/photos/cats-miso-small.webp 480w');
+    expect(html).toContain('id="gallery-photo-data"');
+  });
+
+  it("renders the album list with cover photos", () => {
+    const html = renderAlbumsDocument(gallery);
+
+    expect(html).toContain("<h1");
+    expect(html).toContain("相簿");
+    expect(html).toContain("家里的猫");
+    expect(html).toContain('href="/albums/cats/"');
+    expect(html).toContain('src="/assets/photos/cats-miso-large.webp"');
+  });
+
+  it("renders an album page with heading and filtered photos", () => {
+    const html = renderAlbumDocument(gallery, gallery.albums[0]!);
+
+    expect(html).toContain("猫");
+    expect(html).toContain("家里的猫");
+    expect(html).toContain('data-photo-id="cats-miso"');
+    expect(html).not.toContain('data-photo-id="outside"');
+  });
+
+  it("renders the about page", () => {
+    const html = renderAboutDocument(gallery);
+
+    expect(html).toContain("关于");
+    expect(html).toContain("这里是 Moycat。");
+  });
+
+  it("renders accessible modal and navigation structure", () => {
+    const html = renderGalleryDocument(gallery);
+
+    expect(html).toContain('aria-label="主导航"');
+    expect(html).toContain('aria-label="照片详情"');
+    expect(html).toContain("data-photo-dialog");
+    expect(html).toContain("data-dialog-close");
+    expect(html).toContain("查看原图");
+  });
+
+  it("keeps CSS grid from dense backfilling over chronological order", () => {
+    expect(galleryCss).not.toContain("grid-auto-flow: dense");
   });
 });

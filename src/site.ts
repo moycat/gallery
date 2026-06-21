@@ -1,6 +1,45 @@
 import { defineGalleryConfig, type GalleryConfigDefinition } from "./config.js";
+import { formatChineseDate } from "./exif.js";
 import { buildGallery } from "./gallery-build.js";
-import type { BuiltGallery, BuiltGalleryPhoto, GalleryConfig } from "./types.js";
+import type {
+  BuiltGallery,
+  BuiltGalleryAlbum,
+  BuiltGalleryPhoto,
+  BuiltGalleryThumbnail,
+  GalleryConfig
+} from "./types.js";
+
+interface NavigationItem {
+  href: string;
+  icon: string;
+  label: string;
+}
+
+interface ClientPhoto {
+  detailsHtml: string;
+  id: string;
+  modalSrc: string;
+  originalPath: string;
+  title: string;
+}
+
+const sidebarIntro = "这里存放我拍下的照片。";
+const defaultDescription = "Moycat 的照片画廊。";
+const aboutCopy = [
+  "这里是 Moycat。",
+  "这个画廊存放我在路上、日常和偶然时刻拍下的照片。",
+  "照片按照 EXIF 拍摄时间排列；缺少拍摄时间的照片会放在更旧的位置。"
+];
+const navigationItems: NavigationItem[] = [
+  { href: "/", icon: "fa fa-home", label: "首页" },
+  { href: "/albums/", icon: "fa fa-images", label: "相簿" },
+  { href: "/about/", icon: "fa fa-question", label: "关于" },
+  { href: "https://t.me/moycat_official", icon: "fa fa-podcast", label: "频道" },
+  { href: "https://github.com/moycat", icon: "fab fa-github", label: "GitHub" },
+  { href: "https://t.me/moycat", icon: "fa fa-paper-plane", label: "Telegram" },
+  { href: "mailto:i@moy.cat", icon: "fa fa-envelope", label: "邮箱" },
+  { href: "https://blog.moy.cat", icon: "fa fa-feather-alt", label: "博客" }
+];
 
 export async function buildStaticSite(input: GalleryConfigDefinition): Promise<void> {
   const config = defineGalleryConfig(input);
@@ -14,283 +53,268 @@ export async function buildStaticSite(input: GalleryConfigDefinition): Promise<v
 }
 
 export function renderIndexDocument(config: GalleryConfig): string {
-  const description = config.description ?? "A static photo gallery scaffold.";
-
-  return `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>${escapeHtml(config.title)}</title>
-    <meta name="description" content="${escapeHtml(description)}">
-    <style>
-      :root {
-        color-scheme: light dark;
-        font-family:
-          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      }
-
-      body {
-        margin: 0;
-        background: Canvas;
-        color: CanvasText;
-      }
-
-      main {
-        box-sizing: border-box;
-        min-height: 100vh;
-        padding: clamp(2rem, 8vw, 6rem);
-      }
-
-      h1 {
-        font-size: clamp(2.25rem, 7vw, 5rem);
-        line-height: 1;
-        margin: 0 0 1rem;
-      }
-
-      p {
-        font-size: 1rem;
-        line-height: 1.7;
-        max-width: 42rem;
-      }
-    </style>
-  </head>
-  <body data-gallery-root="true">
-    <main>
-      <h1>${escapeHtml(config.title)}</h1>
-      <p>${escapeHtml(description)}</p>
-      <p>Gallery framework initialized. Photo ingestion, EXIF extraction, album views, and responsive thumbnails will be added as the product design is finalized.</p>
-    </main>
-  </body>
-</html>
-`;
+  return renderDocument({
+    content: `<div class="gallery-page-header">
+        <h1 class="gallery-page-title">${escapeHtml(config.title)}</h1>
+        <p class="gallery-page-description">${escapeHtml(config.description ?? defaultDescription)}</p>
+      </div>`,
+    description: config.description ?? defaultDescription,
+    title: config.title
+  });
 }
 
 export function renderGalleryDocument(gallery: BuiltGallery): string {
-  const description =
-    gallery.description ?? "A static photo gallery generated from local photos and metadata.";
-  const photoById = new Map(gallery.photos.map((photo) => [photo.id, photo]));
-  const unalbumedPhotos = gallery.unalbumedPhotoIds
-    .map((photoId) => photoById.get(photoId))
-    .filter((photo): photo is BuiltGalleryPhoto => photo !== undefined);
+  return renderDocument({
+    content: renderPhotoGrid(gallery.photos, gallery),
+    description: gallery.description ?? defaultDescription,
+    gallery,
+    title: gallery.title
+  });
+}
 
+export function renderAlbumsDocument(gallery: BuiltGallery): string {
+  const photoById = createPhotoMap(gallery);
+
+  return renderDocument({
+    content: `<div class="gallery-page-header">
+        <h1 class="gallery-page-title">相簿</h1>
+        <p class="gallery-page-description">按相簿浏览照片。</p>
+      </div>
+      <div class="album-grid">
+        ${gallery.albums
+          .map((album) => renderAlbumCard(album, photoById.get(album.coverPhotoId ?? "")))
+          .join("\n")}
+      </div>`,
+    description: gallery.description ?? defaultDescription,
+    gallery,
+    title: `相簿 · ${gallery.title}`
+  });
+}
+
+export function renderAlbumDocument(gallery: BuiltGallery, album: BuiltGalleryAlbum): string {
+  const photoById = createPhotoMap(gallery);
+  const photos = album.photoIds
+    .map((photoId) => photoById.get(photoId))
+    .filter((photo): photo is BuiltGalleryPhoto => photo !== undefined)
+    .sort((left, right) => {
+      const leftTimestamp = left.captureTimestamp ?? Number.NEGATIVE_INFINITY;
+      const rightTimestamp = right.captureTimestamp ?? Number.NEGATIVE_INFINITY;
+
+      if (leftTimestamp !== rightTimestamp) {
+        return rightTimestamp - leftTimestamp;
+      }
+
+      return left.id.localeCompare(right.id, "en");
+    });
+
+  return renderDocument({
+    content: `<div class="gallery-page-header">
+        <h1 class="gallery-page-title">${escapeHtml(album.title)}</h1>
+        ${
+          album.description === undefined
+            ? ""
+            : `<p class="gallery-page-description">${escapeHtml(album.description)}</p>`
+        }
+      </div>
+      ${renderPhotoGrid(photos, gallery)}`,
+    description: album.description ?? gallery.description ?? defaultDescription,
+    gallery,
+    title: `${album.title} · ${gallery.title}`
+  });
+}
+
+export function renderAboutDocument(gallery: BuiltGallery): string {
+  return renderDocument({
+    content: `<div class="gallery-page-header">
+        <h1 class="gallery-page-title">关于</h1>
+      </div>
+      <div class="about-copy">
+        ${aboutCopy.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("\n")}
+      </div>`,
+    description: gallery.description ?? defaultDescription,
+    gallery,
+    title: `关于 · ${gallery.title}`
+  });
+}
+
+function renderDocument(options: {
+  content: string;
+  description: string;
+  gallery?: BuiltGallery;
+  title: string;
+}): string {
   return `<!doctype html>
-<html lang="en">
+<html lang="zh-Hans">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>${escapeHtml(gallery.title)}</title>
-    <meta name="description" content="${escapeHtml(description)}">
-    <style>
-      :root {
-        color-scheme: light dark;
-        font-family:
-          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: Canvas;
-        color: CanvasText;
-      }
-
-      body {
-        margin: 0;
-      }
-
-      a {
-        color: inherit;
-      }
-
-      .shell {
-        box-sizing: border-box;
-        display: grid;
-        gap: 2rem;
-        margin: 0 auto;
-        max-width: 1280px;
-        padding: clamp(1.25rem, 4vw, 3rem);
-      }
-
-      header {
-        border-bottom: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
-        padding-bottom: 1.5rem;
-      }
-
-      h1,
-      h2,
-      h3,
-      p {
-        margin: 0;
-      }
-
-      h1 {
-        font-size: clamp(2rem, 5vw, 4rem);
-        line-height: 1;
-      }
-
-      h2 {
-        font-size: clamp(1.35rem, 3vw, 2rem);
-        line-height: 1.15;
-      }
-
-      h3 {
-        font-size: 1rem;
-        line-height: 1.3;
-      }
-
-      .lede,
-      .description,
-      .meta {
-        color: color-mix(in srgb, CanvasText 72%, transparent);
-        line-height: 1.6;
-      }
-
-      .lede {
-        margin-top: 0.75rem;
-        max-width: 48rem;
-      }
-
-      nav {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-      }
-
-      nav a {
-        border: 1px solid color-mix(in srgb, CanvasText 20%, transparent);
-        border-radius: 999px;
-        padding: 0.45rem 0.8rem;
-        text-decoration: none;
-      }
-
-      section {
-        display: grid;
-        gap: 1rem;
-      }
-
-      .section-heading {
-        display: grid;
-        gap: 0.35rem;
-      }
-
-      .grid {
-        display: grid;
-        gap: 1rem;
-        grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
-      }
-
-      .photo {
-        display: grid;
-        gap: 0.65rem;
-      }
-
-      .photo img {
-        aspect-ratio: 1 / 1;
-        background: color-mix(in srgb, CanvasText 8%, Canvas);
-        display: block;
-        height: auto;
-        object-fit: cover;
-        width: 100%;
-      }
-
-      .photo a {
-        display: block;
-      }
-
-      .photo-text {
-        display: grid;
-        gap: 0.25rem;
-      }
-    </style>
+    <title>${escapeHtml(options.title)}</title>
+    <meta name="description" content="${escapeAttribute(options.description)}">
+    <meta name="theme-color" content="#ffffff">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=20230120">
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=20230120">
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png?v=20230120">
+    <link rel="shortcut icon" href="/favicon.ico?v=20230120">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=Noto+Color+Emoji&family=Noto+Serif+SC:wght@200..900&family=Noto+Serif:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/vendor/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="/assets/gallery.css">
+    <script src="/assets/gallery.js" defer></script>
   </head>
   <body data-gallery-root="true">
-    <main class="shell">
-      <header>
-        <h1>${escapeHtml(gallery.title)}</h1>
-        <p class="lede">${escapeHtml(description)}</p>
-      </header>
-      ${renderNavigation(gallery, unalbumedPhotos)}
-      ${gallery.albums
-        .map((album) => {
-          const photos = album.photoIds
-            .map((photoId) => photoById.get(photoId))
-            .filter((photo): photo is BuiltGalleryPhoto => photo !== undefined);
-          return renderPhotoSection(album.id, album.title, album.description, photos);
-        })
-        .join("\n")}
-      ${unalbumedPhotos.length > 0 ? renderPhotoSection("photos", "Photos", undefined, unalbumedPhotos) : ""}
-    </main>
+    <div class="gallery-shell">
+      ${renderSidebar()}
+      <main class="gallery-main">
+        ${options.content}
+      </main>
+    </div>
   </body>
 </html>
 `;
 }
 
-function renderNavigation(gallery: BuiltGallery, unalbumedPhotos: BuiltGalleryPhoto[]): string {
-  const albumLinks = gallery.albums
-    .map((album) => `<a href="#album-${escapeAttribute(album.id)}">${escapeHtml(album.title)}</a>`)
-    .join("\n");
-  const photoLink = unalbumedPhotos.length > 0 ? '<a href="#album-photos">Photos</a>' : "";
-
-  if (albumLinks.length === 0 && photoLink.length === 0) {
-    return "";
-  }
-
-  return `<nav aria-label="Albums">
-        ${albumLinks}
-        ${photoLink}
-      </nav>`;
-}
-
-function renderPhotoSection(
-  id: string,
-  title: string,
-  description: string | undefined,
-  photos: BuiltGalleryPhoto[]
-): string {
-  return `<section id="album-${escapeAttribute(id)}">
-        <div class="section-heading">
-          <h2>${escapeHtml(title)}</h2>
-          ${description === undefined ? "" : `<p class="description">${escapeHtml(description)}</p>`}
-        </div>
-        <div class="grid">
-          ${photos.map(renderPhotoCard).join("\n")}
-        </div>
-      </section>`;
-}
-
-function renderPhotoCard(photo: BuiltGalleryPhoto): string {
-  const title = photo.title ?? photo.id;
-  const description = photo.description;
-  const metadata = formatPhotoMetadata(photo);
-
-  return `<article class="photo">
-            <a href="${escapeAttribute(photo.originalPath)}">
-              <img src="${escapeAttribute(photo.thumbnailPath)}" alt="${escapeAttribute(title)}" loading="lazy">
+function renderSidebar(): string {
+  return `<aside class="gallery-sidebar">
+        <div class="gallery-sidebar__inner">
+          <div class="gallery-sidebar__profile">
+            <a href="/" aria-label="首页">
+              <img class="gallery-sidebar__avatar" src="/assets/images/avatar.webp" alt="头像">
             </a>
-            <div class="photo-text">
-              <h3>${escapeHtml(title)}</h3>
-              ${description === undefined ? "" : `<p class="description">${escapeHtml(description)}</p>`}
-              ${metadata.length === 0 ? "" : `<p class="meta">${escapeHtml(metadata)}</p>`}
-            </div>
-          </article>`;
+            <h1 class="gallery-sidebar__name">Moycat</h1>
+            <p class="gallery-sidebar__intro">${escapeHtml(sidebarIntro)}</p>
+          </div>
+          <nav aria-label="主导航">
+            <ul class="gallery-nav">
+              ${navigationItems.map(renderNavigationItem).join("\n")}
+            </ul>
+          </nav>
+        </div>
+      </aside>`;
 }
 
-function formatPhotoMetadata(photo: BuiltGalleryPhoto): string {
-  const exif = photo.exif;
+function renderNavigationItem(item: NavigationItem): string {
+  const external = item.href.includes(":") && !item.href.startsWith("mailto:");
+  const target = external ? ' target="_blank" rel="noopener"' : "";
 
-  if (exif === undefined) {
-    return "";
-  }
+  return `<li>
+                <a href="${escapeAttribute(item.href)}"${target}>
+                  <i class="${escapeAttribute(item.icon)}" aria-hidden="true"></i>
+                  <span>${escapeHtml(item.label)}</span>
+                </a>
+              </li>`;
+}
 
-  const parts = [
-    exif.capturedAt,
-    exif.camera,
-    exif.lens,
-    formatExposure(exif),
-    exif.location,
-    formatCoordinates(exif)
+function renderAlbumCard(
+  album: BuiltGalleryAlbum,
+  coverPhoto: BuiltGalleryPhoto | undefined
+): string {
+  const cover = coverPhoto === undefined ? "" : renderAlbumCover(coverPhoto);
+
+  return `<a class="album-card" href="/${escapeAttribute(album.pagePath)}">
+          ${cover}
+          <div>
+            <h2>${escapeHtml(album.title)}</h2>
+            ${
+              album.description === undefined
+                ? `<p>${album.photoIds.length.toString()} 张照片</p>`
+                : `<p>${escapeHtml(album.description)}</p>`
+            }
+          </div>
+        </a>`;
+}
+
+function renderAlbumCover(photo: BuiltGalleryPhoto): string {
+  const thumbnail = thumbnailWithName(photo, "large") ?? thumbnailWithName(photo, "medium");
+
+  return `<img src="${escapeAttribute(toSitePath(thumbnail?.path ?? photo.thumbnailPath))}" alt="${escapeAttribute(photo.title ?? photo.id)}" loading="lazy" decoding="async">`;
+}
+
+function renderPhotoGrid(photos: BuiltGalleryPhoto[], gallery: BuiltGallery): string {
+  return `<div class="photo-grid">
+        ${photos.map((photo) => renderPhotoTile(photo, gallery)).join("\n")}
+      </div>
+      ${renderPhotoDialog()}
+      <script type="application/json" id="gallery-photo-data">${escapeScriptJson(
+        JSON.stringify(photos.map((photo) => serializePhotoForClient(photo, gallery)))
+      )}</script>`;
+}
+
+function renderPhotoTile(photo: BuiltGalleryPhoto, gallery: BuiltGallery): string {
+  const title = photo.title ?? photo.id;
+  const medium = thumbnailWithName(photo, "medium") ?? thumbnailWithName(photo, "large");
+  const src = toSitePath(medium?.path ?? photo.thumbnailPath);
+  const srcset = photo.thumbnails
+    .map((thumbnail) => `${toSitePath(thumbnail.path)} ${thumbnail.width}w`)
+    .join(", ");
+  const width = photo.renderedWidth === undefined ? "" : ` width="${photo.renderedWidth}"`;
+  const height = photo.renderedHeight === undefined ? "" : ` height="${photo.renderedHeight}"`;
+  const overlayParts = [
+    formatChineseDate(photo.capturedAt),
+    photo.exif?.camera,
+    albumTitleForPhoto(photo, gallery)
   ].filter((part): part is string => part !== undefined && part.length > 0);
 
-  return parts.join(" · ");
+  return `<a class="photo-tile" href="${escapeAttribute(toSitePath(photo.originalPath))}" data-photo-id="${escapeAttribute(photo.id)}">
+          <img src="${escapeAttribute(src)}"${srcset.length === 0 ? "" : ` srcset="${escapeAttribute(srcset)}"`} sizes="(max-width: 900px) 100vw, 33vw" alt="${escapeAttribute(title)}" loading="lazy" decoding="async"${width}${height}>
+          <span class="photo-tile__overlay">
+            <span>
+              <span class="photo-tile__title">${escapeHtml(title)}</span>
+              <span class="photo-tile__meta">${escapeHtml(overlayParts.join(" · "))}</span>
+            </span>
+          </span>
+        </a>`;
 }
 
-function formatExposure(exif: BuiltGalleryPhoto["exif"]): string | undefined {
+function renderPhotoDialog(): string {
+  return `<dialog class="photo-dialog" data-photo-dialog aria-label="照片详情">
+        <button class="photo-dialog__close" type="button" data-dialog-close aria-label="关闭">关闭</button>
+        <div class="photo-dialog__layout">
+          <div class="photo-dialog__image">
+            <img data-dialog-image alt="">
+          </div>
+          <aside class="photo-dialog__details">
+            <h2 data-dialog-title></h2>
+            <dl data-dialog-details></dl>
+            <a class="photo-dialog__original" data-dialog-original target="_blank" rel="noopener">查看原图</a>
+          </aside>
+        </div>
+      </dialog>`;
+}
+
+function serializePhotoForClient(photo: BuiltGalleryPhoto, gallery: BuiltGallery): ClientPhoto {
+  const title = photo.title ?? photo.id;
+  const modalThumbnail = thumbnailWithName(photo, "large") ?? thumbnailWithName(photo, "medium");
+
+  return {
+    detailsHtml: renderPhotoDetails(photo, gallery),
+    id: photo.id,
+    modalSrc: toSitePath(modalThumbnail?.path ?? photo.thumbnailPath),
+    originalPath: toSitePath(photo.originalPath),
+    title
+  };
+}
+
+function renderPhotoDetails(photo: BuiltGalleryPhoto, gallery: BuiltGallery): string {
+  const rows = [
+    ["说明", photo.description],
+    ["拍摄日期", formatChineseDate(photo.capturedAt)],
+    ["拍摄设备", photo.exif?.camera],
+    ["镜头", photo.exif?.lens],
+    ["曝光", formatExposure(photo)],
+    ["相簿", albumTitleForPhoto(photo, gallery)],
+    ["文件", photo.originalFilename]
+  ].filter((row): row is [string, string] => row[1] !== undefined && row[1].length > 0);
+
+  return rows
+    .map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`)
+    .join("");
+}
+
+function formatExposure(photo: BuiltGalleryPhoto): string | undefined {
+  const exif = photo.exif;
+
   if (exif === undefined) {
     return undefined;
   }
@@ -305,12 +329,31 @@ function formatExposure(exif: BuiltGalleryPhoto["exif"]): string | undefined {
   return parts.length === 0 ? undefined : parts.join(" ");
 }
 
-function formatCoordinates(exif: BuiltGalleryPhoto["exif"]): string | undefined {
-  if (exif?.latitude === undefined || exif.longitude === undefined) {
+function albumTitleForPhoto(photo: BuiltGalleryPhoto, gallery: BuiltGallery): string | undefined {
+  if (photo.albumId === undefined) {
     return undefined;
   }
 
-  return `${exif.latitude}, ${exif.longitude}`;
+  return gallery.albums.find((album) => album.id === photo.albumId)?.title;
+}
+
+function thumbnailWithName(
+  photo: BuiltGalleryPhoto,
+  name: BuiltGalleryThumbnail["name"]
+): BuiltGalleryThumbnail | undefined {
+  return photo.thumbnails.find((thumbnail) => thumbnail.name === name);
+}
+
+function createPhotoMap(gallery: BuiltGallery): Map<string, BuiltGalleryPhoto> {
+  return new Map(gallery.photos.map((photo) => [photo.id, photo]));
+}
+
+function toSitePath(path: string): string {
+  if (path.includes(":") || path.startsWith("/")) {
+    return path;
+  }
+
+  return `/${path}`;
 }
 
 function escapeHtml(value: string): string {
@@ -334,4 +377,19 @@ function escapeHtml(value: string): string {
 
 function escapeAttribute(value: string): string {
   return escapeHtml(value);
+}
+
+function escapeScriptJson(value: string): string {
+  return value.replace(/[<\u2028\u2029]/gu, (character) => {
+    switch (character) {
+      case "<":
+        return "\\u003c";
+      case "\u2028":
+        return "\\u2028";
+      case "\u2029":
+        return "\\u2029";
+      default:
+        return character;
+    }
+  });
 }

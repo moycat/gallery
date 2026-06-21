@@ -3,6 +3,7 @@ import { join } from "node:path";
 
 import sharp, { type OutputInfo, type Sharp } from "sharp";
 
+import { writeStaticAssets } from "./assets.js";
 import { defaultThumbnailSizes } from "./config.js";
 import {
   comparePhotosByCapturedAtDescending,
@@ -12,7 +13,12 @@ import {
 } from "./exif.js";
 import { getOriginalObjectInfo } from "./originals.js";
 import { readGallerySource, updateGallerySource } from "./source.js";
-import { renderGalleryDocument } from "./site.js";
+import {
+  renderAboutDocument,
+  renderAlbumDocument,
+  renderAlbumsDocument,
+  renderGalleryDocument
+} from "./site.js";
 import type {
   BuiltGallery,
   BuiltGalleryAlbum,
@@ -64,6 +70,8 @@ export async function buildGallery(options: GalleryBuildOptions = {}): Promise<B
     await mkdir(originalDir, { recursive: true });
   }
 
+  await writeStaticAssets(outputDir);
+
   const photos = (
     await Promise.all(
       source.photos.map((photo) =>
@@ -103,6 +111,17 @@ export async function buildGallery(options: GalleryBuildOptions = {}): Promise<B
   };
 
   await writeFile(join(outputDir, "index.html"), renderGalleryDocument(gallery), "utf8");
+  await mkdir(join(outputDir, "albums"), { recursive: true });
+  await writeFile(join(outputDir, "albums", "index.html"), renderAlbumsDocument(gallery), "utf8");
+
+  for (const album of gallery.albums) {
+    const albumDir = join(outputDir, "albums", album.id);
+    await mkdir(albumDir, { recursive: true });
+    await writeFile(join(albumDir, "index.html"), renderAlbumDocument(gallery, album), "utf8");
+  }
+
+  await mkdir(join(outputDir, "about"), { recursive: true });
+  await writeFile(join(outputDir, "about", "index.html"), renderAboutDocument(gallery), "utf8");
 
   return gallery;
 }
