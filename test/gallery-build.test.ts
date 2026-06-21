@@ -56,4 +56,26 @@ describe("buildGallery", () => {
     expect(html).toContain('href="assets/originals/abc-haha.png"');
     expect(html).toContain('src="assets/photos/abc-haha.webp"');
   });
+
+  it("links originals to configured storage public URLs without copying originals into Pages output", async () => {
+    const { outputDir, sourceDir } = await createTempWorkspace();
+    await writeFixtureImage(join(sourceDir, "test.jpg"), { width: 1600, height: 900 });
+    await writeFile(join(sourceDir, "test.yml"), "title: Root Photo\n", "utf8");
+
+    await buildGallery({
+      outputDir,
+      storage: {
+        originalPrefix: "published",
+        publicBaseUrl: "https://media.example.com"
+      },
+      sourceDir,
+      title: "Field Gallery"
+    });
+
+    const html = await readFile(join(outputDir, "index.html"), "utf8");
+    expect(html).toContain("https://media.example.com/published/test-");
+    await expect(
+      readFile(join(outputDir, "assets", "originals", "test.jpg"), "utf8")
+    ).rejects.toThrow("ENOENT");
+  });
 });

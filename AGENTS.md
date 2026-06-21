@@ -40,6 +40,7 @@ Run the relevant commands after every code edit and before every commit:
 - Tests: `npm test`
 - Clean generated output: `npm run clean`
 - Generate and validate gallery metadata placeholders: `npm run update`
+- Sync local source originals to an S3-compatible bucket when credentials are configured: `npm run upload`
 - Production build: `npm run build`
 - Cloudflare Pages local preview: `npm run preview`
 - Cloudflare Pages deploy: `npm run deploy`
@@ -54,6 +55,7 @@ Run the relevant commands after every code edit and before every commit:
 - Prefer testing public behavior over implementation details.
 - For image and EXIF work, include small fixtures and assert metadata/thumbnail outputs without committing large camera originals.
 - Store source photos under `photos/` and keep JPG/PNG files in Git LFS through `.gitattributes`.
+- Do not commit `.envs`; use `.envs.example` as the template for S3-compatible upload credentials and local overrides.
 
 ## Cloudflare Agent Resources
 

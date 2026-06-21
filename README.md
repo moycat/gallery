@@ -14,7 +14,10 @@ The product design is intentionally minimal for now. The current code establishe
 - `npm run deadcode` runs Knip.
 - `npm run clean` removes generated build output.
 - `npm run update` creates missing metadata YAML files and validates existing metadata.
+- `npm run upload` syncs source originals to an S3-compatible bucket and shows a progress bar in interactive terminals.
+- `npm run upload -- --prune` also deletes remote originals under the configured prefix when they no longer exist locally.
 - `npm run build` compiles TypeScript and writes `dist/index.html`.
+- `npm run dev` builds a local preview and serves it without uploading or deploying.
 - `npm run preview` serves `dist` with Wrangler Pages.
 - `npm run deploy` builds and deploys `dist` to Cloudflare Pages.
 - `npm run wrangler:types:check` verifies generated Cloudflare types are current.
@@ -72,3 +75,40 @@ exif:
 ```
 
 Run `npm run update` to create missing metadata placeholders and validate existing metadata. `npm run build` runs the same update step before generating 1080px WebP thumbnails, copying originals, and writing the static site.
+
+## Environment Configuration
+
+Project-level settings come from environment variables or `.envs`.
+
+```bash
+GALLERY_TITLE=Gallery
+GALLERY_DESCRIPTION=Optional gallery description
+GALLERY_SOURCE_DIR=photos
+GALLERY_OUTPUT_DIR=dist
+S3_ORIGINAL_PREFIX=originals
+S3_PUBLIC_BASE_URL=https://media.example.com
+```
+
+When `S3_PUBLIC_BASE_URL` is set, `npm run build` links originals to remote storage using content-addressed keys such as `https://media.example.com/originals/test-<sha256>.jpg` and does not copy originals into `dist`. When it is not set, build output uses local copied originals so `npm run dev` works without remote storage.
+
+## S3-Compatible Uploads
+
+Copy `.envs.example` to `.envs` and fill in credentials. `.envs` is ignored by git.
+
+Required for upload:
+
+```bash
+S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+S3_BUCKET=gallery-originals
+S3_ACCESS_KEY_ID=your-access-key-id
+S3_SECRET_ACCESS_KEY=your-secret-access-key
+```
+
+Optional:
+
+```bash
+S3_PUBLIC_BASE_URL=https://media.example.com
+S3_ORIGINAL_PREFIX=originals
+```
+
+`npm run upload` uses an S3-compatible API through the AWS SDK. For Cloudflare R2, set `S3_ENDPOINT` to `https://<account-id>.r2.cloudflarestorage.com` and use R2 S3 access key credentials. It does not shell out to Wrangler or use Cloudflare account API tokens for bucket management. Use `npm run upload -- --prune` to remove objects under the configured original prefix when no local photo maps to them anymore.
