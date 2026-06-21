@@ -12,7 +12,6 @@ export {
 export { readGallerySource, updateGallerySource } from "./source.js";
 export {
   buildStaticSite,
-  renderAboutDocument,
   renderAlbumDocument,
   renderAlbumsDocument,
   renderGalleryDocument,

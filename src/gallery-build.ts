@@ -13,12 +13,7 @@ import {
 } from "./exif.js";
 import { getOriginalObjectInfo } from "./originals.js";
 import { readGallerySource, updateGallerySource } from "./source.js";
-import {
-  renderAboutDocument,
-  renderAlbumDocument,
-  renderAlbumsDocument,
-  renderGalleryDocument
-} from "./site.js";
+import { renderAlbumDocument, renderAlbumsDocument, renderGalleryDocument } from "./site.js";
 import type {
   BuiltGallery,
   BuiltGalleryAlbum,
@@ -119,9 +114,6 @@ export async function buildGallery(options: GalleryBuildOptions = {}): Promise<B
     await mkdir(albumDir, { recursive: true });
     await writeFile(join(albumDir, "index.html"), renderAlbumDocument(gallery, album), "utf8");
   }
-
-  await mkdir(join(outputDir, "about"), { recursive: true });
-  await writeFile(join(outputDir, "about", "index.html"), renderAboutDocument(gallery), "utf8");
 
   return gallery;
 }

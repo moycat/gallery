@@ -86,7 +86,9 @@ Generated routes:
 - `/` timeline of all photos.
 - `/albums/` album index.
 - `/albums/<album-id>/` album detail page.
-- `/about/` static about page.
+
+The about content is rendered as an inline modal opened from the sidebar, matching the blog
+interaction pattern rather than a separate route.
 
 ## Environment Configuration
 

@@ -61,8 +61,10 @@ describe("buildGallery", () => {
     await expect(
       readFile(join(outputDir, "albums", "abc", "index.html"), "utf8")
     ).resolves.toContain("Square Photo");
-    await expect(readFile(join(outputDir, "about", "index.html"), "utf8")).resolves.toContain(
-      "关于"
+    expect(html).toContain('id="about"');
+    expect(html).toContain('href="#about"');
+    await expect(readFile(join(outputDir, "about", "index.html"), "utf8")).rejects.toThrow(
+      "ENOENT"
     );
   });
 

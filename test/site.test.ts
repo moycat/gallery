@@ -1,12 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  renderAboutDocument,
-  renderAlbumDocument,
-  renderAlbumsDocument,
-  renderGalleryDocument
-} from "../src/site.js";
-import { galleryCss } from "../src/site-assets.js";
+import { renderAlbumDocument, renderAlbumsDocument, renderGalleryDocument } from "../src/site.js";
+import { galleryClientJs, galleryCss } from "../src/site-assets.js";
 import type { BuiltGallery } from "../src/types.js";
 
 const gallery: BuiltGallery = {
@@ -100,10 +95,11 @@ describe("site rendering", () => {
 
     expect(html).toContain('<html lang="zh-Hans">');
     expect(html).toContain("<title>Moycat 的相册</title>");
-    expect(html).toContain("这里存放我拍下的照片。");
+    expect(html).toContain("Life is strange. So am I.");
     expect(html).toContain("首页");
     expect(html).toContain("相簿");
     expect(html).toContain("关于");
+    expect(html).toContain('href="#about"');
     expect(html).toContain("频道");
     expect(html).toContain("GitHub");
     expect(html).toContain("Telegram");
@@ -139,13 +135,6 @@ describe("site rendering", () => {
     expect(html).not.toContain('data-photo-id="outside"');
   });
 
-  it("renders the about page", () => {
-    const html = renderAboutDocument(gallery);
-
-    expect(html).toContain("关于");
-    expect(html).toContain("这里是 Moycat。");
-  });
-
   it("renders accessible modal and navigation structure", () => {
     const html = renderGalleryDocument(gallery);
 
@@ -153,10 +142,37 @@ describe("site rendering", () => {
     expect(html).toContain('aria-label="照片详情"');
     expect(html).toContain("data-photo-dialog");
     expect(html).toContain("data-dialog-close");
+    expect(html).toContain('<i class="fa fa-times" aria-hidden="true"></i>');
     expect(html).toContain("查看原图");
+    expect(html).not.toContain('data-dialog-close aria-label="关闭">关闭</button>');
+  });
+
+  it("renders the blog-style about modal on every gallery page", () => {
+    const html = renderGalleryDocument(gallery);
+
+    expect(html).toContain('id="about"');
+    expect(html).toContain('id="about-card"');
+    expect(html).toContain('id="about-btn-close"');
+    expect(html).toContain("这里是 Moycat");
+    expect(html).not.toContain('href="/about/"');
   });
 
   it("keeps CSS grid from dense backfilling over chronological order", () => {
     expect(galleryCss).not.toContain("grid-auto-flow: dense");
+  });
+
+  it("keeps the fixed sidebar from covering the gallery content", () => {
+    expect(galleryCss).toContain("grid-column: 2");
+  });
+
+  it("keeps sidebar interactions aligned with the blog", () => {
+    expect(galleryCss).toContain("filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.1))");
+    expect(galleryCss).toContain("transform: translate(0, -0.4rem)");
+    expect(galleryCss).toContain("height: 45px");
+  });
+
+  it("closes modals when the user clicks outside their card", () => {
+    expect(galleryClientJs).toContain("event.target === dialog");
+    expect(galleryClientJs).toContain("event.target === about");
   });
 });

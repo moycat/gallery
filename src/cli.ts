@@ -2,7 +2,7 @@
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { extname, join, resolve } from "node:path";
+import { extname, join, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { lookup as lookupMimeType } from "mime-types";
@@ -315,10 +315,9 @@ async function handleStaticRequest(
   response: ServerResponse
 ): Promise<void> {
   const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
-  const requestedPath = url.pathname === "/" ? "/index.html" : decodeURIComponent(url.pathname);
-  const filePath = resolve(join(root, requestedPath));
+  const filePath = resolveStaticFilePath(root, url.pathname);
 
-  if (!filePath.startsWith(root)) {
+  if (filePath === undefined) {
     response.writeHead(403);
     response.end("Forbidden");
     return;
@@ -348,6 +347,26 @@ async function handleStaticRequest(
     response.writeHead(500);
     response.end("Internal server error");
   }
+}
+
+export function resolveStaticFilePath(root: string, pathname: string): string | undefined {
+  const decodedPathname = decodeURIComponent(pathname);
+  const requestedPath =
+    decodedPathname === "/"
+      ? "/index.html"
+      : decodedPathname.endsWith("/")
+        ? `${decodedPathname}index.html`
+        : extname(decodedPathname) === ""
+          ? `${decodedPathname}/index.html`
+          : decodedPathname;
+  const resolvedRoot = resolve(root);
+  const filePath = resolve(join(resolvedRoot, requestedPath));
+
+  if (filePath !== resolvedRoot && !filePath.startsWith(`${resolvedRoot}${sep}`)) {
+    return undefined;
+  }
+
+  return filePath;
 }
 
 const entryPoint = process.argv[1];

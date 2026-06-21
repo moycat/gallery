@@ -23,22 +23,25 @@ interface ClientPhoto {
   title: string;
 }
 
-const sidebarIntro = "这里存放我拍下的照片。";
+const sidebarIntro = "Life is strange. So am I.";
 const defaultDescription = "Moycat 的照片画廊。";
-const aboutCopy = [
-  "这里是 Moycat。",
-  "这个画廊存放我在路上、日常和偶然时刻拍下的照片。",
-  "照片按照 EXIF 拍摄时间排列；缺少拍摄时间的照片会放在更旧的位置。"
-];
-const navigationItems: NavigationItem[] = [
-  { href: "/", icon: "fa fa-home", label: "首页" },
-  { href: "/albums/", icon: "fa fa-images", label: "相簿" },
-  { href: "/about/", icon: "fa fa-question", label: "关于" },
-  { href: "https://t.me/moycat_official", icon: "fa fa-podcast", label: "频道" },
-  { href: "https://github.com/moycat", icon: "fab fa-github", label: "GitHub" },
-  { href: "https://t.me/moycat", icon: "fa fa-paper-plane", label: "Telegram" },
-  { href: "mailto:i@moy.cat", icon: "fa fa-envelope", label: "邮箱" },
-  { href: "https://blog.moy.cat", icon: "fa fa-feather-alt", label: "博客" }
+const aboutBioHtml = `<p>这里是 Moycat 👋<br>
+        信仰存在主义与不可知论<br>
+        在广袤而浅薄的土地上一路驰骋</p>
+        <p>☀ · 🌈 · 🐱 · 🐳 · 🍥</p>`;
+const navigationGroups: NavigationItem[][] = [
+  [
+    { href: "/", icon: "fa fa-home", label: "首页" },
+    { href: "/albums/", icon: "fa fa-images", label: "相簿" },
+    { href: "#about", icon: "fa fa-question", label: "关于" },
+    { href: "https://blog.moy.cat", icon: "fa fa-feather-alt", label: "博客" }
+  ],
+  [
+    { href: "https://t.me/moycat_official", icon: "fa fa-podcast", label: "频道" },
+    { href: "https://github.com/moycat", icon: "fab fa-github", label: "GitHub" },
+    { href: "https://t.me/moycat", icon: "fa fa-paper-plane", label: "Telegram" },
+    { href: "mailto:i@moy.cat", icon: "fa fa-envelope", label: "邮箱" }
+  ]
 ];
 
 export async function buildStaticSite(input: GalleryConfigDefinition): Promise<void> {
@@ -123,20 +126,6 @@ export function renderAlbumDocument(gallery: BuiltGallery, album: BuiltGalleryAl
   });
 }
 
-export function renderAboutDocument(gallery: BuiltGallery): string {
-  return renderDocument({
-    content: `<div class="gallery-page-header">
-        <h1 class="gallery-page-title">关于</h1>
-      </div>
-      <div class="about-copy">
-        ${aboutCopy.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("\n")}
-      </div>`,
-    description: gallery.description ?? defaultDescription,
-    gallery,
-    title: `关于 · ${gallery.title}`
-  });
-}
-
 function renderDocument(options: {
   content: string;
   description: string;
@@ -170,6 +159,7 @@ function renderDocument(options: {
         ${options.content}
       </main>
     </div>
+    ${renderAboutModal()}
   </body>
 </html>
 `;
@@ -177,33 +167,60 @@ function renderDocument(options: {
 
 function renderSidebar(): string {
   return `<aside class="gallery-sidebar">
-        <div class="gallery-sidebar__inner">
-          <div class="gallery-sidebar__profile">
+        <div class="gallery-sidebar__inner sidebar-container">
+          <div class="gallery-sidebar__profile sidebar-profile">
             <a href="/" aria-label="首页">
-              <img class="gallery-sidebar__avatar" src="/assets/images/avatar.webp" alt="头像">
+              <img class="gallery-sidebar__avatar sidebar-profile-picture" src="/assets/images/avatar.webp" alt="头像">
             </a>
-            <h1 class="gallery-sidebar__name">Moycat</h1>
-            <p class="gallery-sidebar__intro">${escapeHtml(sidebarIntro)}</p>
+            <h4 class="gallery-sidebar__name sidebar-profile-name">Moycat</h4>
+            <h5 class="gallery-sidebar__intro sidebar-profile-bio">${escapeHtml(sidebarIntro)}</h5>
           </div>
-          <nav aria-label="主导航">
-            <ul class="gallery-nav">
-              ${navigationItems.map(renderNavigationItem).join("\n")}
-            </ul>
+          <nav class="gallery-nav" aria-label="主导航">
+            ${navigationGroups.map(renderNavigationGroup).join("\n")}
           </nav>
         </div>
       </aside>`;
+}
+
+function renderNavigationGroup(items: NavigationItem[]): string {
+  return `<ul class="sidebar-buttons">
+              ${items.map(renderNavigationItem).join("\n")}
+            </ul>`;
 }
 
 function renderNavigationItem(item: NavigationItem): string {
   const external = item.href.includes(":") && !item.href.startsWith("mailto:");
   const target = external ? ' target="_blank" rel="noopener"' : "";
 
-  return `<li>
-                <a href="${escapeAttribute(item.href)}"${target}>
-                  <i class="${escapeAttribute(item.icon)}" aria-hidden="true"></i>
-                  <span>${escapeHtml(item.label)}</span>
+  return `<li class="sidebar-button">
+                <a class="sidebar-button-link" href="${escapeAttribute(item.href)}"${target} title="${escapeAttribute(item.label)}">
+                  <i class="sidebar-button-icon ${escapeAttribute(item.icon)}" aria-hidden="true"></i>
+                  <span class="sidebar-button-desc">${escapeHtml(item.label)}</span>
                 </a>
               </li>`;
+}
+
+function renderAboutModal(): string {
+  return `<div id="about" role="dialog" aria-modal="true" aria-labelledby="about-card-name" aria-hidden="true" data-about-modal>
+      <div id="about-card" role="document">
+        <button id="about-btn-close" type="button" aria-label="关闭" data-about-close>
+          <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+        <img id="about-card-picture" src="/assets/images/avatar.webp" alt="头像">
+        <h4 id="about-card-name">Moycat</h4>
+        <div id="about-card-bio">${aboutBioHtml}</div>
+        <div id="about-card-job">
+          <i class="fa fa-briefcase" aria-hidden="true"></i>
+          <br>
+          ByteDance
+        </div>
+        <div id="about-card-location">
+          <i class="fa fa-map-marker-alt" aria-hidden="true"></i>
+          <br>
+          Bellevue, WA
+        </div>
+      </div>
+    </div>`;
 }
 
 function renderAlbumCard(
@@ -269,7 +286,9 @@ function renderPhotoTile(photo: BuiltGalleryPhoto, gallery: BuiltGallery): strin
 
 function renderPhotoDialog(): string {
   return `<dialog class="photo-dialog" data-photo-dialog aria-label="照片详情">
-        <button class="photo-dialog__close" type="button" data-dialog-close aria-label="关闭">关闭</button>
+        <button class="photo-dialog__close" type="button" data-dialog-close aria-label="关闭">
+          <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
         <div class="photo-dialog__layout">
           <div class="photo-dialog__image">
             <img data-dialog-image alt="">
