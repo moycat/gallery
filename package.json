@@ -27,7 +27,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "wrangler:types": "wrangler types --path ./src/cloudflare-env.d.ts"
+    "wrangler:types": "wrangler types ./src/cloudflare-env.d.ts",
+    "wrangler:types:check": "wrangler types ./src/cloudflare-env.d.ts --check"
   },
   "repository": {
     "type": "git",

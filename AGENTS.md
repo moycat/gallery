@@ -43,6 +43,7 @@ Run the relevant commands after every code edit and before every commit:
 - Cloudflare Pages local preview: `npm run preview`
 - Cloudflare Pages deploy: `npm run deploy`
 - Cloudflare binding types, after config/binding changes: `npm run wrangler:types`
+- Cloudflare binding type freshness check: `npm run wrangler:types:check`
 
 ## Testing Expectations
 

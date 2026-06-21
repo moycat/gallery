@@ -16,6 +16,7 @@ The product design is intentionally minimal for now. The current code establishe
 - `npm run build` compiles TypeScript and writes `dist/index.html`.
 - `npm run preview` serves `dist` with Wrangler Pages.
 - `npm run deploy` builds and deploys `dist` to Cloudflare Pages.
+- `npm run wrangler:types:check` verifies generated Cloudflare types are current.
 
 ## Cloudflare
 
