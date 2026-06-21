@@ -28,7 +28,7 @@ export function loadProjectConfig(options: LoadProjectConfigOptions = {}): Proje
       ...(publicBaseUrl === undefined ? {} : { publicBaseUrl })
     },
     sourceDir: readEnvValue(env.GALLERY_SOURCE_DIR) ?? "photos",
-    title: readEnvValue(env.GALLERY_TITLE) ?? "Gallery"
+    title: readEnvValue(env.GALLERY_TITLE) ?? "末影画廊"
   };
 }
 

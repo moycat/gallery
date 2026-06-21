@@ -119,6 +119,8 @@ describe("site rendering", () => {
   it("renders the album list with cover photos", () => {
     const html = renderAlbumsDocument(gallery);
 
+    expect(html).toContain("<title>相簿 - Moycat 的相册</title>");
+    expect(html).not.toContain("<title>相簿 · Moycat 的相册</title>");
     expect(html).toContain("<h1");
     expect(html).toContain("相簿");
     expect(html).toContain("家里的猫");
@@ -129,6 +131,8 @@ describe("site rendering", () => {
   it("renders an album page with heading and filtered photos", () => {
     const html = renderAlbumDocument(gallery, gallery.albums[0]!);
 
+    expect(html).toContain("<title>猫 - Moycat 的相册</title>");
+    expect(html).not.toContain("<title>猫 · Moycat 的相册</title>");
     expect(html).toContain("猫");
     expect(html).toContain("家里的猫");
     expect(html).toContain('data-photo-id="cats-miso"');

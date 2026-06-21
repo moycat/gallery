@@ -12,7 +12,7 @@ describe("loadProjectConfig", () => {
         originalPrefix: "originals"
       },
       sourceDir: "photos",
-      title: "Gallery"
+      title: "末影画廊"
     });
   });
 

@@ -25,6 +25,18 @@ async function createTempWorkspace(): Promise<{ outputDir: string; sourceDir: st
 }
 
 describe("buildGallery", () => {
+  it("uses the branded default site title when no title is provided", async () => {
+    const { outputDir, sourceDir } = await createTempWorkspace();
+    await writeFixtureImage(join(sourceDir, "test.jpg"));
+
+    const result = await buildGallery({ outputDir, sourceDir });
+
+    expect(result.title).toBe("末影画廊");
+    await expect(readFile(join(outputDir, "index.html"), "utf8")).resolves.toContain(
+      "<title>末影画廊</title>"
+    );
+  });
+
   it("updates metadata, generates thumbnails, copies originals, and renders album routes", async () => {
     const { outputDir, sourceDir } = await createTempWorkspace();
     await writeFixtureImage(join(sourceDir, "test.jpg"), { width: 1600, height: 900 });

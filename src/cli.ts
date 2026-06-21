@@ -229,7 +229,7 @@ function readFlagValue(flag: string, value: string | undefined): string {
 
 function printHelp(): void {
   console.log(`Usage:
-  gallery build [--sourceDir photos] [--outDir dist] [--title Gallery] [--description text]
+  gallery build [--sourceDir photos] [--outDir dist] [--title 末影画廊] [--description text]
   gallery dev [--sourceDir photos] [--outDir dist] [--port 8788]
   gallery update [--sourceDir photos]
   gallery upload [--sourceDir photos] [--prune]

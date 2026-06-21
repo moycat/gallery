@@ -43,7 +43,7 @@ export interface GalleryBuildOptions {
 export async function buildGallery(options: GalleryBuildOptions = {}): Promise<BuiltGallery> {
   const outputDir = options.outputDir ?? "dist";
   const sourceDir = options.sourceDir ?? "photos";
-  const title = options.title ?? "Gallery";
+  const title = options.title ?? "末影画廊";
   const logger = options.logger ?? console;
 
   await updateGallerySource({ sourceDir });

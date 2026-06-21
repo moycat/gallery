@@ -95,7 +95,7 @@ interaction pattern rather than a separate route.
 Project-level settings come from environment variables or `.envs`.
 
 ```bash
-GALLERY_TITLE=Gallery
+GALLERY_TITLE=末影画廊
 GALLERY_DESCRIPTION=Optional gallery description
 GALLERY_SOURCE_DIR=photos
 GALLERY_OUTPUT_DIR=dist

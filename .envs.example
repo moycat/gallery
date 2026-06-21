@@ -2,7 +2,7 @@
 # Copy this file to `.envs` and fill in real values. `.envs` is ignored by git.
 
 # Optional project settings.
-# GALLERY_TITLE=Gallery
+# GALLERY_TITLE=末影画廊
 # GALLERY_DESCRIPTION=
 # GALLERY_SOURCE_DIR=photos
 # GALLERY_OUTPUT_DIR=dist

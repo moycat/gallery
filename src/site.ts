@@ -90,7 +90,7 @@ export function renderAlbumsDocument(gallery: BuiltGallery): string {
       </div>`,
     description: gallery.description ?? defaultDescription,
     gallery,
-    title: `相簿 · ${gallery.title}`
+    title: `相簿 - ${gallery.title}`
   });
 }
 
@@ -122,7 +122,7 @@ export function renderAlbumDocument(gallery: BuiltGallery, album: BuiltGalleryAl
       ${renderPhotoGrid(photos, gallery)}`,
     description: album.description ?? gallery.description ?? defaultDescription,
     gallery,
-    title: `${album.title} · ${gallery.title}`
+    title: `${album.title} - ${gallery.title}`
   });
 }
 
