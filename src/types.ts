@@ -60,12 +60,13 @@ export interface GalleryConfigInput {
 }
 
 export interface GallerySourceAlbum {
+  coverPhotoId?: string;
+  description?: string;
   id: string;
   metadataPath: string;
   photoIds: string[];
   sourceDir: string;
   title: string;
-  description?: string;
   weight?: number;
 }
 
@@ -87,13 +88,30 @@ export interface GallerySource {
   unalbumedPhotoIds: string[];
 }
 
+export interface BuiltGalleryThumbnail {
+  format: ThumbnailSize["format"];
+  height: number;
+  name: string;
+  path: string;
+  width: number;
+}
+
 export interface BuiltGalleryPhoto extends GallerySourcePhoto {
+  capturedAt?: string;
+  captureTimestamp?: number;
   originalPath: string;
+  renderedHeight?: number;
+  renderedWidth?: number;
   thumbnailPath: string;
+  thumbnails: BuiltGalleryThumbnail[];
+}
+
+export interface BuiltGalleryAlbum extends GallerySourceAlbum {
+  pagePath: string;
 }
 
 export interface BuiltGallery {
-  albums: GallerySourceAlbum[];
+  albums: BuiltGalleryAlbum[];
   photos: BuiltGalleryPhoto[];
   title: string;
   unalbumedPhotoIds: string[];

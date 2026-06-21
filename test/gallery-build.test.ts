@@ -78,4 +78,97 @@ describe("buildGallery", () => {
       readFile(join(outputDir, "assets", "originals", "test.jpg"), "utf8")
     ).rejects.toThrow("ENOENT");
   });
+
+  it("sorts built photos by capture time descending and warns when capture time is missing", async () => {
+    const { outputDir, sourceDir } = await createTempWorkspace();
+    const warnings: string[] = [];
+    await writeFixtureImage(join(sourceDir, "old.jpg"));
+    await writeFixtureImage(join(sourceDir, "new.jpg"));
+    await writeFixtureImage(join(sourceDir, "missing.jpg"));
+    await writeFile(
+      join(sourceDir, "old.yml"),
+      "exif:\n  capturedAt: '2023-01-01T00:00:00Z'\n",
+      "utf8"
+    );
+    await writeFile(
+      join(sourceDir, "new.yml"),
+      "exif:\n  capturedAt: '2024-01-01T00:00:00Z'\n",
+      "utf8"
+    );
+    await writeFile(join(sourceDir, "missing.yml"), "title: Missing Date\n", "utf8");
+
+    const result = await buildGallery({
+      logger: { warn: (message) => warnings.push(message) },
+      outputDir,
+      sourceDir,
+      title: "Moycat Gallery"
+    });
+
+    expect(result.photos.map((photo) => photo.id)).toEqual(["new", "old", "missing"]);
+    expect(warnings).toEqual([expect.stringContaining("Missing EXIF capture time: missing")]);
+  });
+
+  it("generates thumbnail variants and records their dimensions", async () => {
+    const { outputDir, sourceDir } = await createTempWorkspace();
+    await writeFixtureImage(join(sourceDir, "wide.jpg"), { height: 900, width: 1600 });
+    await writeFile(
+      join(sourceDir, "wide.yml"),
+      "exif:\n  capturedAt: '2024-01-01T00:00:00Z'\n",
+      "utf8"
+    );
+
+    const result = await buildGallery({ outputDir, sourceDir, title: "Moycat Gallery" });
+    const wide = result.photos[0];
+
+    expect(wide?.thumbnails.map((thumbnail) => thumbnail.name)).toEqual([
+      "small",
+      "medium",
+      "large"
+    ]);
+    expect(wide?.renderedWidth).toBeGreaterThan(wide?.renderedHeight ?? 0);
+    await expect(
+      readFile(join(outputDir, "assets", "photos", "wide-small.webp"))
+    ).resolves.toBeInstanceOf(Buffer);
+    await expect(
+      readFile(join(outputDir, "assets", "photos", "wide-medium.webp"))
+    ).resolves.toBeInstanceOf(Buffer);
+    await expect(
+      readFile(join(outputDir, "assets", "photos", "wide-large.webp"))
+    ).resolves.toBeInstanceOf(Buffer);
+  });
+
+  it("validates configured album covers and falls back to the oldest album photo", async () => {
+    const { outputDir, sourceDir } = await createTempWorkspace();
+    await writeFixtureImage(join(sourceDir, "cats", "old.jpg"));
+    await writeFixtureImage(join(sourceDir, "cats", "new.jpg"));
+    await writeFile(join(sourceDir, "cats.yml"), "title: Cats\n", "utf8");
+    await writeFile(
+      join(sourceDir, "cats", "old.yml"),
+      "exif:\n  capturedAt: '2022-01-01T00:00:00Z'\n",
+      "utf8"
+    );
+    await writeFile(
+      join(sourceDir, "cats", "new.yml"),
+      "exif:\n  capturedAt: '2024-01-01T00:00:00Z'\n",
+      "utf8"
+    );
+
+    const result = await buildGallery({ outputDir, sourceDir, title: "Moycat Gallery" });
+
+    expect(result.albums[0]).toEqual(expect.objectContaining({ coverPhotoId: "cats-old" }));
+  });
+
+  it("rejects album covers that do not belong to the album", async () => {
+    const { outputDir, sourceDir } = await createTempWorkspace();
+    await writeFixtureImage(join(sourceDir, "cats", "miso.jpg"));
+    await writeFixtureImage(join(sourceDir, "dogs", "momo.jpg"));
+    await writeFile(join(sourceDir, "cats.yml"), "title: Cats\ncoverPhotoId: dogs-momo\n", "utf8");
+    await writeFile(join(sourceDir, "dogs.yml"), "title: Dogs\n", "utf8");
+    await writeFile(join(sourceDir, "cats", "miso.yml"), "title: Miso\n", "utf8");
+    await writeFile(join(sourceDir, "dogs", "momo.yml"), "title: Momo\n", "utf8");
+
+    await expect(buildGallery({ outputDir, sourceDir, title: "Moycat Gallery" })).rejects.toThrow(
+      "Album cover photo dogs-momo is not in album cats"
+    );
+  });
 });

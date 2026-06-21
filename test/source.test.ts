@@ -34,6 +34,9 @@ describe("updateGallerySource", () => {
       join(sourceDir, "test.yml")
     ]);
     await expect(readFile(join(sourceDir, "abc.yml"), "utf8")).resolves.toContain("title: abc");
+    await expect(readFile(join(sourceDir, "abc.yml"), "utf8")).resolves.toContain(
+      "# coverPhotoId: abc-haha"
+    );
     await expect(readFile(join(sourceDir, "abc", "haha.yml"), "utf8")).resolves.toContain(
       "# title:"
     );
@@ -55,6 +58,17 @@ describe("updateGallerySource", () => {
     await writeFile(join(sourceDir, "abc.yml"), "description: Missing title\n", "utf8");
 
     await expect(updateGallerySource({ sourceDir })).rejects.toThrow("Invalid album metadata");
+  });
+
+  it("creates album metadata placeholders with a documented cover field", async () => {
+    const sourceDir = await createTempSource();
+    await writeFixtureImage(join(sourceDir, "iphone", "IMG_0001.jpeg"));
+
+    await updateGallerySource({ sourceDir });
+
+    await expect(readFile(join(sourceDir, "iphone.yml"), "utf8")).resolves.toContain(
+      "# coverPhotoId: iphone-IMG_0001"
+    );
   });
 });
 
@@ -110,5 +124,27 @@ describe("readGallerySource", () => {
     const rootPhoto = gallery.photos.find((photo) => photo.id === "test");
     expect(rootPhoto).toMatchObject({ title: "Root Photo" });
     expect(rootPhoto).not.toHaveProperty("albumId");
+  });
+
+  it("reads optional album cover photo ids", async () => {
+    const sourceDir = await createTempSource();
+    await writeFixtureImage(join(sourceDir, "cats", "miso.jpg"));
+    await writeFile(
+      join(sourceDir, "cats.yml"),
+      ["title: Cats", "description: Cats at home", "coverPhotoId: cats-miso", ""].join("\n"),
+      "utf8"
+    );
+    await writeFile(join(sourceDir, "cats", "miso.yml"), "title: Miso\n", "utf8");
+
+    const gallery = await readGallerySource({ sourceDir });
+
+    expect(gallery.albums).toEqual([
+      expect.objectContaining({
+        coverPhotoId: "cats-miso",
+        description: "Cats at home",
+        id: "cats",
+        title: "Cats"
+      })
+    ]);
   });
 });

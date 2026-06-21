@@ -1,14 +1,34 @@
 import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import sharp from "sharp";
+import sharp, { type OutputInfo, type Sharp } from "sharp";
 
+import { defaultThumbnailSizes } from "./config.js";
+import {
+  comparePhotosByCapturedAtDescending,
+  mergePhotoExif,
+  readImageExif,
+  selectOldestPhoto
+} from "./exif.js";
 import { getOriginalObjectInfo } from "./originals.js";
 import { readGallerySource, updateGallerySource } from "./source.js";
 import { renderGalleryDocument } from "./site.js";
-import type { BuiltGallery, BuiltGalleryPhoto } from "./types.js";
+import type {
+  BuiltGallery,
+  BuiltGalleryAlbum,
+  BuiltGalleryPhoto,
+  BuiltGalleryThumbnail,
+  GallerySourcePhoto,
+  ThumbnailSize
+} from "./types.js";
+
+interface GalleryBuildLogger {
+  warn(message: string): void;
+}
 
 export interface GalleryBuildOptions {
+  description?: string;
+  logger?: GalleryBuildLogger;
   outputDir?: string;
   storage?: {
     originalPrefix: string;
@@ -16,7 +36,6 @@ export interface GalleryBuildOptions {
   };
   sourceDir?: string;
   title?: string;
-  description?: string;
   useLocalOriginals?: boolean;
 }
 
@@ -24,6 +43,7 @@ export async function buildGallery(options: GalleryBuildOptions = {}): Promise<B
   const outputDir = options.outputDir ?? "dist";
   const sourceDir = options.sourceDir ?? "photos";
   const title = options.title ?? "Gallery";
+  const logger = options.logger ?? console;
 
   await updateGallerySource({ sourceDir });
 
@@ -44,35 +64,38 @@ export async function buildGallery(options: GalleryBuildOptions = {}): Promise<B
     await mkdir(originalDir, { recursive: true });
   }
 
-  const photos = await Promise.all(
-    source.photos.map(async (photo): Promise<BuiltGalleryPhoto> => {
-      const thumbnailPath = `assets/photos/${photo.id}.webp`;
-      const localOriginalPath = `assets/originals/${photo.id}.${photo.originalExtension}`;
-      const finalOriginalPath =
-        remoteOriginals === undefined
-          ? localOriginalPath
-          : ((await getOriginalObjectInfo(photo, remoteOriginals)).url ?? localOriginalPath);
+  const photos = (
+    await Promise.all(
+      source.photos.map((photo) =>
+        enrichPhoto(photo, {
+          logger,
+          outputDir,
+          remoteOriginals
+        })
+      )
+    )
+  ).sort(comparePhotosByCapturedAtDescending);
+  const photoById = new Map(photos.map((photo) => [photo.id, photo]));
+  const albums = source.albums.map((album): BuiltGalleryAlbum => {
+    const albumPhotos = album.photoIds
+      .map((photoId) => photoById.get(photoId))
+      .filter((photo): photo is BuiltGalleryPhoto => photo !== undefined);
+    const fallbackCover = selectOldestPhoto(albumPhotos)?.id;
+    const coverPhotoId = album.coverPhotoId ?? fallbackCover;
 
-      await sharp(photo.sourcePath)
-        .rotate()
-        .resize({ width: 1080, height: 1080, fit: "inside", withoutEnlargement: true })
-        .webp({ quality: 82 })
-        .toFile(join(outputDir, thumbnailPath));
+    if (album.coverPhotoId !== undefined && !album.photoIds.includes(album.coverPhotoId)) {
+      throw new Error(`Album cover photo ${album.coverPhotoId} is not in album ${album.id}`);
+    }
 
-      if (remoteOriginals === undefined) {
-        await copyFile(photo.sourcePath, join(outputDir, localOriginalPath));
-      }
-
-      return {
-        ...photo,
-        originalPath: finalOriginalPath,
-        thumbnailPath
-      };
-    })
-  );
+    return {
+      ...album,
+      pagePath: `albums/${album.id}/`,
+      ...(coverPhotoId === undefined ? {} : { coverPhotoId })
+    };
+  });
 
   const gallery: BuiltGallery = {
-    albums: source.albums,
+    albums,
     photos,
     title,
     unalbumedPhotoIds: source.unalbumedPhotoIds,
@@ -82,4 +105,112 @@ export async function buildGallery(options: GalleryBuildOptions = {}): Promise<B
   await writeFile(join(outputDir, "index.html"), renderGalleryDocument(gallery), "utf8");
 
   return gallery;
+}
+
+async function enrichPhoto(
+  photo: GallerySourcePhoto,
+  options: {
+    logger: GalleryBuildLogger;
+    outputDir: string;
+    remoteOriginals:
+      | {
+          originalPrefix: string;
+          publicBaseUrl: string;
+        }
+      | undefined;
+  }
+): Promise<BuiltGalleryPhoto> {
+  const fileExif = await readImageExif(photo.sourcePath);
+  const exif = mergePhotoExif(fileExif, photo.exif);
+  const capturedAt = exif.capturedAt;
+  const captureTimestamp = capturedAt === undefined ? undefined : Date.parse(capturedAt);
+  const captureFields =
+    capturedAt === undefined || captureTimestamp === undefined || !Number.isFinite(captureTimestamp)
+      ? {}
+      : { capturedAt, captureTimestamp };
+  const thumbnails = await generateThumbnails(photo, options.outputDir);
+  const largestThumbnail =
+    thumbnails.find((thumbnail) => thumbnail.name === "large") ?? thumbnails.at(-1);
+  const thumbnailPath = `assets/photos/${photo.id}.webp`;
+  const localOriginalPath = `assets/originals/${photo.id}.${photo.originalExtension}`;
+  const finalOriginalPath =
+    options.remoteOriginals === undefined
+      ? localOriginalPath
+      : ((await getOriginalObjectInfo(photo, options.remoteOriginals)).url ?? localOriginalPath);
+
+  await sharp(photo.sourcePath)
+    .rotate()
+    .resize({ fit: "inside", height: 1080, width: 1080, withoutEnlargement: true })
+    .webp({ quality: 82 })
+    .toFile(join(options.outputDir, thumbnailPath));
+
+  if (options.remoteOriginals === undefined) {
+    await copyFile(photo.sourcePath, join(options.outputDir, localOriginalPath));
+  }
+
+  if (
+    capturedAt === undefined ||
+    captureTimestamp === undefined ||
+    !Number.isFinite(captureTimestamp)
+  ) {
+    options.logger.warn(`Missing EXIF capture time: ${photo.id}`);
+  }
+
+  return {
+    ...photo,
+    exif,
+    originalPath: finalOriginalPath,
+    ...captureFields,
+    ...(largestThumbnail === undefined
+      ? {}
+      : {
+          renderedHeight: largestThumbnail.height,
+          renderedWidth: largestThumbnail.width
+        }),
+    thumbnailPath,
+    thumbnails
+  };
+}
+
+async function generateThumbnails(
+  photo: GallerySourcePhoto,
+  outputDir: string
+): Promise<BuiltGalleryThumbnail[]> {
+  const thumbnails: BuiltGalleryThumbnail[] = [];
+
+  for (const size of defaultThumbnailSizes) {
+    const path = `assets/photos/${photo.id}-${size.name}.${size.format}`;
+    const image = sharp(photo.sourcePath).rotate().resize({
+      fit: "inside",
+      height: size.height,
+      width: size.width,
+      withoutEnlargement: true
+    });
+    const info = await writeThumbnail(image, join(outputDir, path), size.format);
+
+    thumbnails.push({
+      format: size.format,
+      height: info.height,
+      name: size.name,
+      path,
+      width: info.width
+    });
+  }
+
+  return thumbnails;
+}
+
+function writeThumbnail(
+  image: Sharp,
+  path: string,
+  format: ThumbnailSize["format"]
+): Promise<OutputInfo> {
+  switch (format) {
+    case "avif":
+      return image.avif({ quality: 72 }).toFile(path);
+    case "jpeg":
+      return image.jpeg({ quality: 84 }).toFile(path);
+    case "webp":
+      return image.webp({ quality: 82 }).toFile(path);
+  }
 }

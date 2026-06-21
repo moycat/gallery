@@ -64,6 +64,7 @@ const exifSchema = z
 
 const albumMetadataSchema = z
   .object({
+    coverPhotoId: optionalTextSchema,
     description: optionalTextSchema,
     title: nonEmptyStringSchema,
     weight: z.number().finite().optional()
@@ -85,6 +86,7 @@ type PhotoMetadataInput = {
 };
 
 type AlbumMetadataInput = {
+  coverPhotoId?: string;
   description?: string;
   title: string;
   weight?: number;
@@ -105,10 +107,17 @@ export async function updateGallerySource(
   for (const metadataPath of expectedMetadataPaths) {
     if (!(await fileExists(metadataPath))) {
       const album = inventory.albumDirs.find((item) => item.metadataPath === metadataPath);
+      const coverPhotoId =
+        album === undefined
+          ? undefined
+          : inventory.photos
+              .filter((photo) => photo.albumId === album.id)
+              .map((photo) => photo.id)
+              .sort(compareText)[0];
       const content =
         album === undefined
           ? createPhotoMetadataPlaceholder()
-          : createAlbumMetadataPlaceholder(album.id);
+          : createAlbumMetadataPlaceholder(album.id, coverPhotoId);
 
       await writeFile(metadataPath, content, "utf8");
       created.push(metadataPath);
@@ -145,6 +154,7 @@ export async function readGallerySource(
         photoIds,
         sourceDir: album.sourceDir,
         title: metadata.title,
+        ...(metadata.coverPhotoId === undefined ? {} : { coverPhotoId: metadata.coverPhotoId }),
         ...(metadata.description === undefined ? {} : { description: metadata.description }),
         ...(metadata.weight === undefined ? {} : { weight: metadata.weight })
       };
@@ -317,6 +327,7 @@ async function readAlbumMetadata(path: string): Promise<AlbumMetadataInput> {
   }
 
   return {
+    ...(parsed.data.coverPhotoId === undefined ? {} : { coverPhotoId: parsed.data.coverPhotoId }),
     title: parsed.data.title,
     ...(parsed.data.description === undefined ? {} : { description: parsed.data.description }),
     ...(parsed.data.weight === undefined ? {} : { weight: parsed.data.weight })
@@ -378,8 +389,16 @@ async function readYamlFile(path: string, kind: "album" | "photo"): Promise<unkn
   }
 }
 
-function createAlbumMetadataPlaceholder(albumId: string): string {
-  return [`title: ${albumId}`, "# description: Album description", "# weight: 0", ""].join("\n");
+function createAlbumMetadataPlaceholder(albumId: string, coverPhotoId?: string): string {
+  return [
+    `title: ${albumId}`,
+    "# description: Album description",
+    coverPhotoId === undefined
+      ? "# coverPhotoId: album-photo-id"
+      : `# coverPhotoId: ${coverPhotoId}`,
+    "# weight: 0",
+    ""
+  ].join("\n");
 }
 
 function createPhotoMetadataPlaceholder(): string {

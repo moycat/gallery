@@ -9,6 +9,7 @@ describe("buildStaticSite", () => {
         {
           id: "abc",
           metadataPath: "photos/abc.yml",
+          pagePath: "albums/abc/",
           photoIds: ["abc-haha"],
           sourceDir: "photos/abc",
           title: "Album <ABC>",
@@ -25,6 +26,7 @@ describe("buildStaticSite", () => {
           originalPath: "assets/originals/abc-haha.jpg",
           sourcePath: "photos/abc/haha.jpg",
           thumbnailPath: "assets/photos/abc-haha.webp",
+          thumbnails: [],
           title: "Photo & Title"
         }
       ],
