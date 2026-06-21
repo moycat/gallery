@@ -1,8 +1,8 @@
 # Gallery
 
-TypeScript static gallery framework scaffold for camera photos, optional photo metadata, albums, EXIF extraction, thumbnail generation, and Cloudflare Pages deployment.
+TypeScript static gallery framework for camera photos, optional photo metadata, albums, EXIF extraction, thumbnail generation, and Cloudflare Pages deployment.
 
-The product design is intentionally minimal for now. The current code establishes the TypeScript toolchain, Cloudflare Pages configuration, and a tiny static output path that later gallery generation work can replace.
+The generated site is pure static HTML/CSS/vanilla JavaScript. It renders a Chinese timeline feed, album index, album detail pages, an about page, lazy-loaded responsive thumbnails, and modal photo details with original-photo links.
 
 ## Commands
 
@@ -16,7 +16,7 @@ The product design is intentionally minimal for now. The current code establishe
 - `npm run update` creates missing metadata YAML files and validates existing metadata.
 - `npm run upload` syncs source originals to an S3-compatible bucket and shows a progress bar in interactive terminals.
 - `npm run upload -- --prune` also deletes remote originals under the configured prefix when they no longer exist locally.
-- `npm run build` compiles TypeScript and writes `dist/index.html`.
+- `npm run build` compiles TypeScript and writes the static site to `dist`.
 - `npm run dev` builds a local preview and serves it without uploading or deploying.
 - `npm run preview` serves `dist` with Wrangler Pages.
 - `npm run deploy` builds and deploys `dist` to Cloudflare Pages.
@@ -53,8 +53,11 @@ Album metadata is required and uses the directory name plus `.yml`:
 ```yaml
 title: Album ABC
 description: Optional album description
+coverPhotoId: abc-haha
 weight: 1
 ```
+
+If `coverPhotoId` is set, build validation requires it to reference a photo inside that album. If it is omitted, the build uses the oldest photo in the album based on EXIF capture time; photos without capture time are treated as older than dated photos.
 
 Photo metadata is optional and uses the image filename without the extension plus `.yml`:
 
@@ -74,7 +77,16 @@ exif:
   longitude: 0
 ```
 
-Run `npm run update` to create missing metadata placeholders and validate existing metadata. `npm run build` runs the same update step before generating 1080px WebP thumbnails, copying originals, and writing the static site.
+The home feed and album pages sort photos by EXIF capture time in descending order. When a photo has no EXIF capture time, the build prints a warning and treats that photo as the oldest for sorting and fallback album covers.
+
+Run `npm run update` to create missing metadata placeholders and validate existing metadata. `npm run build` runs the same update step before generating responsive WebP thumbnails, copying originals, and writing the static site.
+
+Generated routes:
+
+- `/` timeline of all photos.
+- `/albums/` album index.
+- `/albums/<album-id>/` album detail page.
+- `/about/` static about page.
 
 ## Environment Configuration
 
