@@ -2,6 +2,7 @@ build/
 coverage/
 dist/
 node_modules/
+docs/superpowers/
 .dev.vars
 .envs
 .wrangler/
