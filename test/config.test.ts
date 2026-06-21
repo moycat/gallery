@@ -7,7 +7,7 @@ describe("defineGalleryConfig", () => {
     const config = defineGalleryConfig({ title: "Field Notes" });
 
     expect(config).toMatchObject({
-      contentDir: "content",
+      contentDir: "photos",
       outputDir: "dist",
       thumbnailDir: "assets/photos",
       title: "Field Notes"

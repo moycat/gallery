@@ -39,6 +39,7 @@ Run the relevant commands after every code edit and before every commit:
 - Dead-code/code-smell cleanup: `npm run deadcode`
 - Tests: `npm test`
 - Clean generated output: `npm run clean`
+- Generate and validate gallery metadata placeholders: `npm run update`
 - Production build: `npm run build`
 - Cloudflare Pages local preview: `npm run preview`
 - Cloudflare Pages deploy: `npm run deploy`
@@ -52,6 +53,7 @@ Run the relevant commands after every code edit and before every commit:
 - Follow existing Vitest style and keep filesystem tests isolated with temporary directories.
 - Prefer testing public behavior over implementation details.
 - For image and EXIF work, include small fixtures and assert metadata/thumbnail outputs without committing large camera originals.
+- Store source photos under `photos/` and keep JPG/PNG files in Git LFS through `.gitattributes`.
 
 ## Cloudflare Agent Resources
 

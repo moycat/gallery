@@ -44,6 +44,9 @@ jobs:
       - name: Check dead code
         run: npm run deadcode
 
+      - name: Validate gallery metadata
+        run: npm run update
+
       - name: Test
         run: npm test
 

@@ -1,12 +1,18 @@
 #!/usr/bin/env node
 import { pathToFileURL } from "node:url";
 
-import { buildStaticSite } from "./site.js";
+import { buildGallery } from "./gallery-build.js";
+import { updateGallerySource } from "./source.js";
 
 interface BuildArgs {
   description?: string;
   outDir: string;
+  sourceDir: string;
   title: string;
+}
+
+interface UpdateArgs {
+  sourceDir: string;
 }
 
 export async function runCli(args = process.argv.slice(2)): Promise<void> {
@@ -15,17 +21,21 @@ export async function runCli(args = process.argv.slice(2)): Promise<void> {
   switch (command) {
     case "build": {
       const options = parseBuildArgs(rest);
-      const buildInput = {
+      await buildGallery({
+        ...(options.description === undefined ? {} : { description: options.description }),
         outputDir: options.outDir,
+        sourceDir: options.sourceDir,
         title: options.title
-      };
-
-      await buildStaticSite(
-        options.description === undefined
-          ? buildInput
-          : { ...buildInput, description: options.description }
+      });
+      console.log(`Wrote gallery site to ${options.outDir}`);
+      return;
+    }
+    case "update": {
+      const options = parseUpdateArgs(rest);
+      const result = await updateGallerySource({ sourceDir: options.sourceDir });
+      console.log(
+        `Updated ${options.sourceDir}: ${result.albums} albums, ${result.photos} photos, ${result.created.length} metadata files created`
       );
-      console.log(`Wrote static gallery scaffold to ${options.outDir}`);
       return;
     }
     case "help":
@@ -41,6 +51,7 @@ export async function runCli(args = process.argv.slice(2)): Promise<void> {
 function parseBuildArgs(args: string[]): BuildArgs {
   const options: BuildArgs = {
     outDir: "dist",
+    sourceDir: "photos",
     title: "Gallery"
   };
 
@@ -57,12 +68,38 @@ function parseBuildArgs(args: string[]): BuildArgs {
         options.outDir = readFlagValue(arg, next);
         index += 1;
         break;
+      case "--sourceDir":
+        options.sourceDir = readFlagValue(arg, next);
+        index += 1;
+        break;
       case "--title":
         options.title = readFlagValue(arg, next);
         index += 1;
         break;
       default:
         throw new Error(`Unknown build option: ${arg}`);
+    }
+  }
+
+  return options;
+}
+
+function parseUpdateArgs(args: string[]): UpdateArgs {
+  const options: UpdateArgs = {
+    sourceDir: "photos"
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    const next = args[index + 1];
+
+    switch (arg) {
+      case "--sourceDir":
+        options.sourceDir = readFlagValue(arg, next);
+        index += 1;
+        break;
+      default:
+        throw new Error(`Unknown update option: ${arg}`);
     }
   }
 
@@ -79,10 +116,12 @@ function readFlagValue(flag: string, value: string | undefined): string {
 
 function printHelp(): void {
   console.log(`Usage:
-  gallery build [--outDir dist] [--title Gallery] [--description text]
+  gallery build [--sourceDir photos] [--outDir dist] [--title Gallery] [--description text]
+  gallery update [--sourceDir photos]
 
 Commands:
-  build  Write the current static gallery scaffold
+  build   Update metadata, generate thumbnails, copy originals, and write the static site
+  update  Create missing metadata placeholders and validate existing metadata
   help   Show this help message
 `);
 }

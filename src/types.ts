@@ -13,6 +13,7 @@ export interface PhotoExif {
   iso?: number;
   latitude?: number;
   lens?: string;
+  location?: string;
   longitude?: number;
   shutterSpeed?: string;
 }
@@ -33,6 +34,7 @@ export interface AlbumMetadata {
   coverPhotoId?: string;
   description?: string;
   photoIds: string[];
+  weight?: number;
 }
 
 export interface GalleryConfig {
@@ -55,4 +57,45 @@ export interface GalleryConfigInput {
   photos?: PhotoMetadata[];
   thumbnailDir?: string;
   thumbnailSizes?: ThumbnailSize[];
+}
+
+export interface GallerySourceAlbum {
+  id: string;
+  metadataPath: string;
+  photoIds: string[];
+  sourceDir: string;
+  title: string;
+  description?: string;
+  weight?: number;
+}
+
+export interface GallerySourcePhoto {
+  id: string;
+  metadataPath: string;
+  originalExtension: "jpg" | "jpeg" | "png";
+  originalFilename: string;
+  sourcePath: string;
+  albumId?: string;
+  description?: string;
+  exif?: PhotoExif;
+  title?: string;
+}
+
+export interface GallerySource {
+  albums: GallerySourceAlbum[];
+  photos: GallerySourcePhoto[];
+  unalbumedPhotoIds: string[];
+}
+
+export interface BuiltGalleryPhoto extends GallerySourcePhoto {
+  originalPath: string;
+  thumbnailPath: string;
+}
+
+export interface BuiltGallery {
+  albums: GallerySourceAlbum[];
+  photos: BuiltGalleryPhoto[];
+  title: string;
+  unalbumedPhotoIds: string[];
+  description?: string;
 }
