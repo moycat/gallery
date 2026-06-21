@@ -212,15 +212,16 @@ img {
 }
 
 .photo-grid {
-  align-items: start;
+  align-items: stretch;
+  column-gap: 11px;
   display: grid;
-  gap: 11px;
   grid-auto-rows: 8px;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  row-gap: 11px;
 }
 
 .photo-tile {
-  background: #f7f8f8;
+  background: transparent;
   grid-row-end: span var(--row-span, 36);
   min-height: 18rem;
   overflow: hidden;
@@ -759,6 +760,7 @@ export const galleryClientJs = String.raw`
   function layoutMasonry() {
     document.querySelectorAll(".photo-tile").forEach((tile) => {
       const img = tile.querySelector("img");
+      const grid = tile.closest(".photo-grid");
 
       if (!(img instanceof HTMLImageElement)) {
         return;
@@ -766,7 +768,12 @@ export const galleryClientJs = String.raw`
 
       const width = tile.getBoundingClientRect().width;
       const height = img.naturalWidth > 0 ? (width * img.naturalHeight) / img.naturalWidth : width;
-      tile.style.setProperty("--row-span", String(Math.max(8, Math.ceil((height + 11) / 19))));
+      const gridStyle = grid === null ? undefined : getComputedStyle(grid);
+      const rowHeight = Number.parseFloat(gridStyle?.gridAutoRows ?? "8") || 8;
+      const rowGap = Number.parseFloat(gridStyle?.rowGap ?? "0") || 0;
+      const rowStride = rowHeight + rowGap;
+      const rowSpan = Math.ceil((height + rowGap) / rowStride);
+      tile.style.setProperty("--row-span", String(Math.max(1, rowSpan)));
     });
   }
 

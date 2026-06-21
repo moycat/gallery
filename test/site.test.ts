@@ -175,4 +175,13 @@ describe("site rendering", () => {
     expect(galleryClientJs).toContain("event.target === dialog");
     expect(galleryClientJs).toContain("event.target === about");
   });
+
+  it("reads masonry spacing from CSS instead of hard-coded gutter math", () => {
+    expect(galleryCss).toContain("align-items: stretch");
+    expect(galleryCss).toContain("column-gap: 11px");
+    expect(galleryCss).toContain("row-gap: 11px");
+    expect(galleryCss).toContain("background: transparent");
+    expect(galleryClientJs).toContain("rowGap");
+    expect(galleryClientJs).not.toContain("+ 11");
+  });
 });
