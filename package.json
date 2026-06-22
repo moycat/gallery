@@ -22,6 +22,7 @@
     "dev": "tsx src/cli.ts dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "hydrate:photos": "tsx scripts/hydrate-lfs-photos.ts",
     "lint": "eslint .",
     "preview": "wrangler pages dev dist",
     "test": "vitest run",

@@ -2,5 +2,6 @@ build/
 coverage/
 dist/
 .gallery-cache/
+.photos-cache/
 node_modules/
 src/cloudflare-env.d.ts

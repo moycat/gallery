@@ -7,5 +7,6 @@ docs/superpowers/
 .envs
 .wrangler/
 .gallery-cache/
+.photos-cache/
 .DS_Store
 *.log
