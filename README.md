@@ -18,6 +18,9 @@ Required repository secrets:
 - `S3_BUCKET`
 - `S3_ENDPOINT`
 - `S3_SECRET_ACCESS_KEY`
+
+Required repository variables:
+
 - `S3_PUBLIC_BASE_URL`
 
 Optional repository variables:

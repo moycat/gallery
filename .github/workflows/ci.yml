@@ -17,6 +17,8 @@ jobs:
     name: Quality Gates
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      S3_PUBLIC_BASE_URL: ${{ vars.S3_PUBLIC_BASE_URL }}
 
     steps:
       - name: Checkout
