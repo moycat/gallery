@@ -20,13 +20,12 @@ jobs:
     env:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      GALLERY_DESCRIPTION: ${{ vars.GALLERY_DESCRIPTION }}
       GALLERY_OUTPUT_DIR: dist
       GALLERY_SOURCE_DIR: photos
-      GALLERY_TITLE: ${{ vars.GALLERY_TITLE }}
       S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
       S3_BUCKET: ${{ secrets.S3_BUCKET }}
       S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+      S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
       S3_ORIGINAL_PREFIX: ${{ vars.S3_ORIGINAL_PREFIX }}
       S3_PUBLIC_BASE_URL: ${{ vars.S3_PUBLIC_BASE_URL }}
       WRANGLER_SEND_METRICS: "false"

@@ -25,6 +25,4 @@ Required repository variables:
 
 Optional repository variables:
 
-- `GALLERY_DESCRIPTION`
-- `GALLERY_TITLE`
 - `S3_ORIGINAL_PREFIX`
