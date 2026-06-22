@@ -21,6 +21,11 @@ Detected stack: Node.js 22, npm, TypeScript, Vitest, ESLint flat config, Prettie
 - i18n strings and user-facing product copy may use the target product language.
 - Reply to users in the language they use.
 
+## Documentation Policy
+
+- Never modify the repository-root `README.md`.
+- Documentation authored by agents must live under `docs/`.
+
 ## Subagent Workflow
 
 - Use subagents for separable investigation, repository exploration, implementation, validation, and review tasks.
