@@ -172,8 +172,18 @@ describe("site rendering", () => {
     expect(html).not.toContain('href="/about/"');
   });
 
+  it("closes the mobile drawer before opening the about modal", () => {
+    expect(galleryClientJs).toContain("function openAboutFromTrigger()");
+    expect(galleryClientJs).toContain("closeSidebar();\n    openAbout();");
+  });
+
   it("keeps CSS grid from dense backfilling over chronological order", () => {
     expect(galleryCss).not.toContain("grid-auto-flow: dense");
+  });
+
+  it("does not keep photo overlays visible after mouse-opened dialogs close", () => {
+    expect(galleryCss).toContain(".photo-tile:focus-visible .photo-tile__overlay");
+    expect(galleryCss).not.toContain(".photo-tile:focus-within .photo-tile__overlay");
   });
 
   it("keeps the fixed sidebar from covering the gallery content", () => {
@@ -208,6 +218,34 @@ describe("site rendering", () => {
     expect(galleryClientJs).toContain("[data-sidebar-open]");
     expect(galleryClientJs).toContain('classList.add("pushed")');
     expect(galleryClientJs).toContain('classList.remove("pushed")');
+  });
+
+  it("supports the requested mobile sidebar drawer behavior", () => {
+    expect(galleryCss).toMatch(
+      /@media \(max-width: 767px\) \{[\s\S]*\.gallery-sidebar__profile \{[\s\S]*height: auto/
+    );
+    expect(galleryClientJs).toContain("function toggleSidebar()");
+    expect(galleryClientJs).toContain('classList.contains("pushed")');
+    expect(galleryClientJs).toContain("toggleSidebar();");
+  });
+
+  it("keeps the mobile photo modal full-bleed and scrollbar-free", () => {
+    expect(galleryCss).toMatch(
+      /\.photo-dialog \{[\s\S]*inset: 0;[\s\S]*margin: auto;[\s\S]*position: fixed/
+    );
+    expect(galleryCss).toMatch(
+      /@media \(max-width: 767px\) \{[\s\S]*\.photo-dialog \{[\s\S]*scrollbar-width: none/
+    );
+    expect(galleryCss).toContain(".photo-dialog::-webkit-scrollbar");
+    expect(galleryCss).toMatch(
+      /@media \(max-width: 767px\) \{[\s\S]*\.photo-dialog__close \{[\s\S]*display: none/
+    );
+    expect(galleryCss).toMatch(
+      /@media \(max-width: 767px\) \{[\s\S]*\.photo-dialog__image \{[\s\S]*background: transparent[\s\S]*min-height: 0/
+    );
+    expect(galleryCss).toMatch(
+      /@media \(max-width: 767px\) \{[\s\S]*\.photo-dialog__image img \{[\s\S]*max-height: none[\s\S]*width: 100%/
+    );
   });
 
   it("closes modals when the user clicks outside their card", () => {

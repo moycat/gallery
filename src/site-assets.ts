@@ -307,7 +307,7 @@ img {
 }
 
 .photo-tile:hover .photo-tile__overlay,
-.photo-tile:focus-within .photo-tile__overlay {
+.photo-tile:focus-visible .photo-tile__overlay {
   opacity: 1;
 }
 
@@ -361,10 +361,12 @@ img {
 
 .photo-dialog {
   border: 0;
+  inset: 0;
+  margin: auto;
   max-height: min(82vh, 900px);
   max-width: min(1120px, 92vw);
   padding: 0;
-  position: relative;
+  position: fixed;
   width: 92vw;
 }
 
@@ -696,7 +698,7 @@ img {
 
   .gallery-sidebar__profile {
     display: block;
-    height: 160px;
+    height: auto;
     margin-bottom: 15px;
     padding-bottom: 7.5px;
     padding-top: 40px;
@@ -784,12 +786,36 @@ img {
     opacity: 1;
   }
 
+  .photo-dialog {
+    -ms-overflow-style: none;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  .photo-dialog::-webkit-scrollbar {
+    display: none;
+  }
+
+  .photo-dialog__close {
+    display: none;
+  }
+
   .photo-dialog__layout {
     grid-template-columns: 1fr;
   }
 
   .photo-dialog__image {
-    min-height: 24rem;
+    align-items: stretch;
+    background: transparent;
+    display: block;
+    min-height: 0;
+  }
+
+  .photo-dialog__image img {
+    height: auto;
+    max-height: none;
+    max-width: none;
+    width: 100%;
   }
 
   #about-card {
@@ -842,10 +868,15 @@ export const galleryClientJs = String.raw`
     about.setAttribute("aria-hidden", "true");
   }
 
+  function openAboutFromTrigger() {
+    closeSidebar();
+    openAbout();
+  }
+
   document.querySelectorAll('a[href="#about"]').forEach((trigger) => {
     trigger.addEventListener("click", (event) => {
       event.preventDefault();
-      openAbout();
+      openAboutFromTrigger();
     });
   });
 
@@ -877,9 +908,18 @@ export const galleryClientJs = String.raw`
     document.body.style.overflowX = "";
   }
 
+  function toggleSidebar() {
+    if (sidebar instanceof HTMLElement && sidebar.classList.contains("pushed")) {
+      closeSidebar();
+      return;
+    }
+
+    openSidebar();
+  }
+
   sidebarOpen?.addEventListener("click", (event) => {
     event.stopPropagation();
-    openSidebar();
+    toggleSidebar();
   });
   galleryMain?.addEventListener("click", closeSidebar);
   window.addEventListener("resize", () => {
