@@ -16,9 +16,10 @@ export interface OriginalObjectInfo {
 
 export async function getOriginalObjectInfo(
   photo: GallerySourcePhoto,
-  options: { originalPrefix: string; publicBaseUrl?: string }
+  options: { originalPrefix: string; publicBaseUrl?: string },
+  sourceHash?: string
 ): Promise<OriginalObjectInfo> {
-  const hash = await hashFile(photo.sourcePath);
+  const hash = sourceHash ?? (await hashFile(photo.sourcePath));
   const key = buildOriginalObjectKey(photo, hash, options.originalPrefix);
   const contentType = lookupMimeType(photo.sourcePath) || "application/octet-stream";
 
@@ -47,7 +48,7 @@ function buildPublicUrl(baseUrl: string, key: string): string {
   return `${baseUrl.replace(/\/+$/u, "")}/${key}`;
 }
 
-async function hashFile(path: string): Promise<string> {
+export async function hashFile(path: string): Promise<string> {
   const hash = createHash("sha256");
   await pipeline(createReadStream(path), hash);
   return hash.digest("hex");

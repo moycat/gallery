@@ -252,6 +252,40 @@ img {
   transition: transform 250ms ease-in-out;
 }
 
+.main-content-wrap {
+  display: block;
+  margin: 2rem auto 0 auto;
+  max-width: 750px;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+#footer {
+  color: #95a5a6;
+  font-size: 1.5rem;
+  height: auto;
+  margin-top: 30px;
+  padding: 20px 20px;
+  text-align: center;
+}
+
+#footer img {
+  height: 1.8rem;
+  vertical-align: sub;
+}
+
+#footer a {
+  color: var(--gallery-link);
+  display: inline-block;
+  text-decoration: none;
+}
+
+#footer a:hover,
+#footer a:active {
+  color: var(--gallery-link);
+  text-decoration: underline;
+}
+
 .gallery-page-header {
   margin: 0 0 3rem;
   max-width: 72rem;
@@ -312,6 +346,7 @@ img {
 }
 
 .photo-tile__title {
+  display: block;
   font-family: "Noto Serif", "Noto Color Emoji", "Noto Serif SC", serif;
   font-size: 1.7rem;
   line-height: 1.4;
@@ -319,6 +354,7 @@ img {
 }
 
 .photo-tile__meta {
+  display: block;
   font-size: 1.4rem;
   line-height: 1.5;
   margin: 0;
@@ -425,6 +461,14 @@ img {
   margin: 0;
 }
 
+.photo-dialog__details a {
+  color: var(--gallery-link);
+}
+
+.photo-dialog__details dl a {
+  border-bottom: 0;
+}
+
 .photo-dialog__close {
   background: transparent;
   border: 0;
@@ -452,114 +496,6 @@ img {
   color: var(--gallery-link);
   display: inline-block;
   margin-top: 1.6rem;
-}
-
-#about {
-  background: rgba(17, 26, 35, 0.16);
-  cursor: pointer;
-  display: none;
-  height: 100%;
-  left: 0;
-  line-height: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
-  position: fixed;
-  text-align: center;
-  top: 0;
-  width: 100%;
-  z-index: 30;
-}
-
-#about.is-open {
-  display: block;
-}
-
-#about-card {
-  background: #fff;
-  border-radius: 3px;
-  box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
-  color: var(--gallery-body);
-  cursor: initial;
-  display: block;
-  line-height: var(--about-line-height, 1.8);
-  margin: 15px auto;
-  max-width: 400px;
-  opacity: 0;
-  padding: 30px 0;
-  position: relative;
-  top: 0;
-  transform: translateY(-2.4rem);
-  transition:
-    opacity 220ms ease,
-    transform 220ms ease;
-  width: 80%;
-}
-
-#about.is-open #about-card {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-#about-btn-close {
-  background: transparent;
-  border: 0;
-  color: #b9c0c8;
-  cursor: pointer;
-  font: inherit;
-  padding: 0;
-  position: absolute;
-  right: 15px;
-  top: 15px;
-}
-
-#about-btn-close:hover {
-  color: #8e99a3;
-}
-
-#about-card-picture {
-  border-radius: 64px;
-  height: 128px;
-  margin-bottom: 15px;
-  object-fit: cover;
-  width: 128px;
-}
-
-#about-card-name {
-  color: var(--gallery-heading);
-  font-family: "Noto Serif", "Noto Color Emoji", "Noto Serif SC", serif;
-  font-size: 1.8rem;
-  line-height: 1.35;
-  margin: 0 0 20px;
-}
-
-#about-card-bio {
-  margin: 0 0 30px;
-  padding: 0 30px;
-}
-
-#about-card-bio p {
-  margin: 0 0 1em;
-}
-
-#about-card-bio p:last-child {
-  margin-bottom: 0;
-}
-
-#about-card-job,
-#about-card-location {
-  display: inline-block;
-  padding: 0 15px;
-  vertical-align: top;
-  width: calc((100% / 2) - 48px);
-}
-
-#about-card-job,
-#about-card-location,
-#about-card-bio {
-  color: var(--gallery-body);
-  font-size: 1.6rem;
-  font-weight: 400;
-  line-height: 1.8;
 }
 
 @media (max-width: 1279px) {
@@ -817,81 +753,11 @@ img {
     max-width: none;
     width: 100%;
   }
-
-  #about-card {
-    width: 90%;
-  }
-
-  #about-card-picture {
-    border-radius: 55px;
-    height: 110px;
-    width: 110px;
-  }
-
-  #about-card-job,
-  #about-card-location {
-    display: block;
-    padding: 0 30px;
-    width: calc(100% - 60px);
-  }
-
-  #about-card-job {
-    margin-bottom: 15px;
-  }
 }
 `;
 
 export const galleryClientJs = String.raw`
 (() => {
-  const about = document.querySelector("[data-about-modal]");
-  const aboutClose = document.querySelector("[data-about-close]");
-
-  function openAbout() {
-    if (!(about instanceof HTMLElement)) {
-      return;
-    }
-
-    about.classList.add("is-open");
-    about.setAttribute("aria-hidden", "false");
-
-    if (aboutClose instanceof HTMLElement) {
-      aboutClose.focus();
-    }
-  }
-
-  function closeAbout() {
-    if (!(about instanceof HTMLElement)) {
-      return;
-    }
-
-    about.classList.remove("is-open");
-    about.setAttribute("aria-hidden", "true");
-  }
-
-  function openAboutFromTrigger() {
-    closeSidebar();
-    openAbout();
-  }
-
-  document.querySelectorAll('a[href="#about"]').forEach((trigger) => {
-    trigger.addEventListener("click", (event) => {
-      event.preventDefault();
-      openAboutFromTrigger();
-    });
-  });
-
-  aboutClose?.addEventListener("click", closeAbout);
-  about?.addEventListener("click", (event) => {
-    if (event.target === about) {
-      closeAbout();
-    }
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      closeAbout();
-    }
-  });
-
   const sidebar = document.querySelector("[data-sidebar]");
   const sidebarOpen = document.querySelector("[data-sidebar-open]");
   const sidebarHeader = document.querySelector("#header");
@@ -970,10 +836,11 @@ export const galleryClientJs = String.raw`
     }
 
     image.src = photo.modalSrc;
-    image.alt = photo.title;
+    image.alt = photo.alt;
 
     if (title !== null) {
-      title.textContent = photo.title;
+      title.textContent = photo.title || "";
+      title.hidden = photo.title === undefined;
     }
 
     if (details !== null) {

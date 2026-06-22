@@ -1,7 +1,8 @@
-import { copyFile, mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { createHash, randomUUID } from "node:crypto";
+import { access, copyFile, mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 
-import sharp, { type OutputInfo, type Sharp } from "sharp";
+import sharp, { type Sharp } from "sharp";
 
 import { writeStaticAssets } from "./assets.js";
 import { defaultThumbnailSizes } from "./config.js";
@@ -11,8 +12,8 @@ import {
   readImageExif,
   selectOldestPhoto
 } from "./exif.js";
-import { getOriginalObjectInfo } from "./originals.js";
-import { readGallerySource, updateGallerySource } from "./source.js";
+import { getOriginalObjectInfo, hashFile } from "./originals.js";
+import { readGallerySource, updateGallerySource, type GallerySourceProgress } from "./source.js";
 import { renderAlbumDocument, renderAlbumsDocument, renderGalleryDocument } from "./site.js";
 import type {
   BuiltGallery,
@@ -28,8 +29,10 @@ interface GalleryBuildLogger {
 }
 
 export interface GalleryBuildOptions {
+  cacheDir?: string;
   description?: string;
   logger?: GalleryBuildLogger;
+  onProgress?: ((progress: GalleryBuildProgress) => void) | undefined;
   outputDir?: string;
   storage?: {
     originalPrefix: string;
@@ -40,7 +43,15 @@ export interface GalleryBuildOptions {
   useLocalOriginals?: boolean;
 }
 
+export interface GalleryBuildProgress {
+  completed: number;
+  stage: "metadata" | "photos";
+  total: number;
+  current?: string;
+}
+
 export async function buildGallery(options: GalleryBuildOptions = {}): Promise<BuiltGallery> {
+  const cacheDir = options.cacheDir ?? ".gallery-cache";
   const outputDir = options.outputDir ?? "dist";
   const sourceDir = options.sourceDir ?? "photos";
   const title = options.title ?? "末影画廊";
@@ -48,7 +59,11 @@ export async function buildGallery(options: GalleryBuildOptions = {}): Promise<B
 
   await updateGallerySource({ sourceDir });
 
-  const source = await readGallerySource({ sourceDir });
+  const source = await readGallerySource({
+    onProgress: (progress) => emitBuildProgress(options.onProgress, "metadata", progress),
+    sourceDir
+  });
+  emitBuildProgress(options.onProgress, "photos", { completed: 0, total: source.photos.length });
   const thumbnailDir = join(outputDir, "assets", "photos");
   const originalDir = join(outputDir, "assets", "originals");
   const remoteOriginals =
@@ -67,15 +82,25 @@ export async function buildGallery(options: GalleryBuildOptions = {}): Promise<B
 
   await writeStaticAssets(outputDir);
 
+  let completedPhotos = 0;
+  const totalPhotos = source.photos.length;
   const photos = (
     await Promise.all(
-      source.photos.map((photo) =>
-        enrichPhoto(photo, {
+      source.photos.map(async (photo) => {
+        const builtPhoto = await enrichPhoto(photo, {
+          cacheDir,
           logger,
           outputDir,
           remoteOriginals
-        })
-      )
+        });
+        completedPhotos += 1;
+        emitBuildProgress(options.onProgress, "photos", {
+          completed: completedPhotos,
+          current: photo.id,
+          total: totalPhotos
+        });
+        return builtPhoto;
+      })
     )
   ).sort(comparePhotosByCapturedAtDescending);
   const photoById = new Map(photos.map((photo) => [photo.id, photo]));
@@ -118,9 +143,23 @@ export async function buildGallery(options: GalleryBuildOptions = {}): Promise<B
   return gallery;
 }
 
+function emitBuildProgress(
+  onProgress: ((progress: GalleryBuildProgress) => void) | undefined,
+  stage: GalleryBuildProgress["stage"],
+  progress: GallerySourceProgress
+): void {
+  onProgress?.({
+    completed: progress.completed,
+    stage,
+    total: progress.total,
+    ...(progress.current === undefined ? {} : { current: progress.current })
+  });
+}
+
 async function enrichPhoto(
   photo: GallerySourcePhoto,
   options: {
+    cacheDir: string;
     logger: GalleryBuildLogger;
     outputDir: string;
     remoteOriginals:
@@ -139,7 +178,12 @@ async function enrichPhoto(
     capturedAt === undefined || captureTimestamp === undefined || !Number.isFinite(captureTimestamp)
       ? {}
       : { capturedAt, captureTimestamp };
-  const thumbnails = await generateThumbnails(photo, options.outputDir);
+  const sourceHash = await hashFile(photo.sourcePath);
+  const thumbnails = await generateThumbnails(photo, {
+    cacheDir: options.cacheDir,
+    outputDir: options.outputDir,
+    sourceHash
+  });
   const largestThumbnail =
     thumbnails.find((thumbnail) => thumbnail.name === "large") ?? thumbnails.at(-1);
   const thumbnailPath = `assets/photos/${photo.id}.webp`;
@@ -147,13 +191,26 @@ async function enrichPhoto(
   const finalOriginalPath =
     options.remoteOriginals === undefined
       ? localOriginalPath
-      : ((await getOriginalObjectInfo(photo, options.remoteOriginals)).url ?? localOriginalPath);
+      : ((await getOriginalObjectInfo(photo, options.remoteOriginals, sourceHash)).url ??
+        localOriginalPath);
 
-  await sharp(photo.sourcePath)
-    .rotate()
-    .resize({ fit: "inside", height: 1080, width: 1080, withoutEnlargement: true })
-    .webp({ quality: 82 })
-    .toFile(join(options.outputDir, thumbnailPath));
+  await writeCachedThumbnail(
+    sharp(photo.sourcePath)
+      .rotate()
+      .resize({ fit: "inside", height: 1080, width: 1080, withoutEnlargement: true }),
+    {
+      cacheDir: options.cacheDir,
+      format: "webp",
+      height: 1080,
+      outputDir: options.outputDir,
+      path: thumbnailPath,
+      photoId: photo.id,
+      quality: 82,
+      sourceHash,
+      variant: "main",
+      width: 1080
+    }
+  );
 
   if (options.remoteOriginals === undefined) {
     await copyFile(photo.sourcePath, join(options.outputDir, localOriginalPath));
@@ -185,7 +242,11 @@ async function enrichPhoto(
 
 async function generateThumbnails(
   photo: GallerySourcePhoto,
-  outputDir: string
+  options: {
+    cacheDir: string;
+    outputDir: string;
+    sourceHash: string;
+  }
 ): Promise<BuiltGalleryThumbnail[]> {
   const thumbnails: BuiltGalleryThumbnail[] = [];
 
@@ -197,7 +258,19 @@ async function generateThumbnails(
       width: size.width,
       withoutEnlargement: true
     });
-    const info = await writeThumbnail(image, join(outputDir, path), size.format);
+    const quality = thumbnailQuality(size.format);
+    const info = await writeCachedThumbnail(image, {
+      cacheDir: options.cacheDir,
+      format: size.format,
+      ...(size.height === undefined ? {} : { height: size.height }),
+      outputDir: options.outputDir,
+      path,
+      photoId: photo.id,
+      quality,
+      sourceHash: options.sourceHash,
+      variant: size.name,
+      width: size.width
+    });
 
     thumbnails.push({
       format: size.format,
@@ -211,17 +284,150 @@ async function generateThumbnails(
   return thumbnails;
 }
 
+interface CachedThumbnailOptions {
+  cacheDir: string;
+  format: ThumbnailSize["format"];
+  outputDir: string;
+  path: string;
+  photoId: string;
+  quality: number;
+  sourceHash: string;
+  variant: string;
+  width: number;
+  height?: number;
+}
+
+interface ThumbnailDimensions {
+  height: number;
+  width: number;
+}
+
+async function writeCachedThumbnail(
+  image: Sharp,
+  options: CachedThumbnailOptions
+): Promise<ThumbnailDimensions> {
+  const cachePath = buildThumbnailCachePath(options);
+  const outputPath = join(options.outputDir, options.path);
+
+  await mkdir(dirname(cachePath), { recursive: true });
+  await mkdir(dirname(outputPath), { recursive: true });
+
+  const cachedDimensions = await readCachedThumbnailDimensions(cachePath);
+
+  if (cachedDimensions !== undefined) {
+    await copyFile(cachePath, outputPath);
+    return cachedDimensions;
+  }
+
+  const temporaryCachePath = `${cachePath}.${process.pid}.${randomUUID()}.tmp`;
+  let info;
+
+  try {
+    info = await writeThumbnail(image, temporaryCachePath, options.format, options.quality);
+    await rename(temporaryCachePath, cachePath);
+  } catch (error) {
+    await rm(temporaryCachePath, { force: true });
+    throw error;
+  }
+
+  await copyFile(cachePath, outputPath);
+
+  return {
+    height: info.height,
+    width: info.width
+  };
+}
+
+function buildThumbnailCachePath(options: CachedThumbnailOptions): string {
+  const label = sanitizeCacheLabel(`${options.photoId}-${options.variant}`);
+  const transformHash = createHash("sha256")
+    .update(
+      JSON.stringify({
+        version: 1,
+        fit: "inside",
+        format: options.format,
+        height: options.height ?? null,
+        quality: options.quality,
+        rotate: true,
+        sourceHash: options.sourceHash,
+        width: options.width,
+        withoutEnlargement: true
+      })
+    )
+    .digest("hex");
+  const filename = [label, options.sourceHash, transformHash].join("-");
+
+  return join(options.cacheDir, "thumbnails", `${filename}.${options.format}`);
+}
+
+function sanitizeCacheLabel(value: string): string {
+  return value.replace(/[^a-z0-9._-]+/giu, "_");
+}
+
+async function readThumbnailDimensions(path: string): Promise<ThumbnailDimensions> {
+  const metadata = await sharp(path).metadata();
+
+  if (metadata.height === undefined || metadata.width === undefined) {
+    throw new Error(`Cached thumbnail has no dimensions: ${path}`);
+  }
+
+  return {
+    height: metadata.height,
+    width: metadata.width
+  };
+}
+
+async function readCachedThumbnailDimensions(
+  path: string
+): Promise<ThumbnailDimensions | undefined> {
+  if (!(await fileExists(path))) {
+    return undefined;
+  }
+
+  try {
+    return await readThumbnailDimensions(path);
+  } catch {
+    await rm(path, { force: true });
+    return undefined;
+  }
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return false;
+    }
+
+    throw error;
+  }
+}
+
 function writeThumbnail(
   image: Sharp,
   path: string,
-  format: ThumbnailSize["format"]
-): Promise<OutputInfo> {
+  format: ThumbnailSize["format"],
+  quality: number
+) {
   switch (format) {
     case "avif":
-      return image.avif({ quality: 72 }).toFile(path);
+      return image.avif({ quality }).toFile(path);
     case "jpeg":
-      return image.jpeg({ quality: 84 }).toFile(path);
+      return image.jpeg({ quality }).toFile(path);
     case "webp":
-      return image.webp({ quality: 82 }).toFile(path);
+      return image.webp({ quality }).toFile(path);
+  }
+}
+
+function thumbnailQuality(format: ThumbnailSize["format"]): number {
+  switch (format) {
+    case "avif":
+      return 72;
+    case "jpeg":
+      return 84;
+    case "webp":
+      return 82;
   }
 }

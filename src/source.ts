@@ -7,7 +7,14 @@ import { z } from "zod";
 import type { GallerySource, GallerySourceAlbum, GallerySourcePhoto, PhotoExif } from "./types.js";
 
 export interface GallerySourceOptions {
+  onProgress?: ((progress: GallerySourceProgress) => void) | undefined;
   sourceDir?: string;
+}
+
+export interface GallerySourceProgress {
+  completed: number;
+  total: number;
+  current?: string;
 }
 
 export interface GallerySourceUpdateResult {
@@ -97,6 +104,7 @@ export async function updateGallerySource(
 ): Promise<GallerySourceUpdateResult> {
   const sourceDir = options.sourceDir ?? defaultSourceDir;
   const inventory = await collectInventory(sourceDir);
+  emitSourceProgress(options.onProgress, { completed: 0, total: inventory.photos.length });
   const expectedMetadataPaths = [
     ...inventory.albumMetadataPaths,
     ...inventory.albumPhotoMetadataPaths,
@@ -124,7 +132,7 @@ export async function updateGallerySource(
     }
   }
 
-  await validateMetadataFiles(inventory);
+  await validateMetadataFiles(inventory, options.onProgress);
 
   return {
     albums: inventory.albumDirs.length,
@@ -138,6 +146,7 @@ export async function readGallerySource(
 ): Promise<GallerySource> {
   const sourceDir = options.sourceDir ?? defaultSourceDir;
   const inventory = await collectInventory(sourceDir);
+  emitSourceProgress(options.onProgress, { completed: 0, total: inventory.photos.length });
   await validateMetadataFiles(inventory);
 
   const albums = await Promise.all(
@@ -161,9 +170,17 @@ export async function readGallerySource(
     })
   );
 
+  let completedPhotos = 0;
+  const totalPhotos = inventory.photos.length;
   const photos = await Promise.all(
     inventory.photos.map(async (photo): Promise<GallerySourcePhoto> => {
       const metadata = await readPhotoMetadata(photo.metadataPath);
+      completedPhotos += 1;
+      emitSourceProgress(options.onProgress, {
+        completed: completedPhotos,
+        current: photo.id,
+        total: totalPhotos
+      });
 
       return {
         id: photo.id,
@@ -187,6 +204,17 @@ export async function readGallerySource(
       .map((photo) => photo.id)
       .sort(compareText)
   };
+}
+
+function emitSourceProgress(
+  onProgress: ((progress: GallerySourceProgress) => void) | undefined,
+  progress: GallerySourceProgress
+): void {
+  onProgress?.({
+    completed: progress.completed,
+    total: progress.total,
+    ...(progress.current === undefined ? {} : { current: progress.current })
+  });
 }
 
 async function collectInventory(sourceDir: string): Promise<SourceInventory> {
@@ -282,7 +310,10 @@ function createPhotoFile(sourcePath: string, albumId?: string): SourcePhotoFile 
   };
 }
 
-async function validateMetadataFiles(inventory: SourceInventory): Promise<void> {
+async function validateMetadataFiles(
+  inventory: SourceInventory,
+  onProgress?: (progress: GallerySourceProgress) => void
+): Promise<void> {
   const rootExpected = new Set([
     ...inventory.albumMetadataPaths,
     ...inventory.rootPhotoMetadataPaths
@@ -311,11 +342,19 @@ async function validateMetadataFiles(inventory: SourceInventory): Promise<void> 
   }
 
   await Promise.all([...inventory.albumMetadataPaths].map((path) => readAlbumMetadata(path)));
-  await Promise.all(
-    [...inventory.rootPhotoMetadataPaths, ...inventory.albumPhotoMetadataPaths].map((path) =>
-      readPhotoMetadata(path)
-    )
-  );
+
+  let completedPhotos = 0;
+  const totalPhotos = inventory.photos.length;
+
+  for (const photo of inventory.photos) {
+    await readPhotoMetadata(photo.metadataPath);
+    completedPhotos += 1;
+    emitSourceProgress(onProgress, {
+      completed: completedPhotos,
+      current: photo.id,
+      total: totalPhotos
+    });
+  }
 }
 
 async function readAlbumMetadata(path: string): Promise<AlbumMetadataInput> {

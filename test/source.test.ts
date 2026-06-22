@@ -70,6 +70,28 @@ describe("updateGallerySource", () => {
       "# coverPhotoId: iphone-IMG_0001"
     );
   });
+
+  it("reports per-photo metadata indexing progress", async () => {
+    const sourceDir = await createTempSource();
+    const progress: {
+      completed: number;
+      current?: string;
+      total: number;
+    }[] = [];
+    await writeFixtureImage(join(sourceDir, "abc", "haha.png"), { format: "png" });
+    await writeFixtureImage(join(sourceDir, "test.jpg"));
+
+    await updateGallerySource({
+      onProgress: (update) => progress.push(update),
+      sourceDir
+    });
+
+    expect(progress).toEqual([
+      { completed: 0, total: 2 },
+      { completed: 1, current: "abc-haha", total: 2 },
+      { completed: 2, current: "test", total: 2 }
+    ]);
+  });
 });
 
 describe("readGallerySource", () => {

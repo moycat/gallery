@@ -16,25 +16,26 @@ interface NavigationItem {
 }
 
 interface ClientPhoto {
+  alt: string;
   detailsHtml: string;
   id: string;
   modalSrc: string;
   originalPath: string;
-  title: string;
+  title?: string;
+}
+
+interface PhotoDetailRow {
+  label: string;
+  valueHtml: string;
 }
 
 const sidebarIntro = "Life is strange. So am I.";
 const defaultDescription = "Moycat 的照片画廊。";
-const aboutBioHtml = `<p>这里是 Moycat 👋<br>
-        信仰存在主义与不可知论<br>
-        在广袤而浅薄的土地上一路驰骋</p>
-        <p>☀ · 🌈 · 🐱 · 🐳 · 🍥</p>`;
 const navigationGroups: NavigationItem[][] = [
   [
     { href: "/", icon: "fa fa-home", label: "首页" },
-    { href: "/albums/", icon: "fa fa-archive", label: "相簿" },
-    { href: "#about", icon: "fa fa-question", label: "关于" },
-    { href: "https://blog.moy.cat", icon: "fa fa-rss", label: "博客" }
+    { href: "/albums/", icon: "fa fa-images", label: "相簿" },
+    { href: "https://blog.moy.cat", icon: "fa fa-pen", label: "博客" }
   ],
   [
     { href: "https://t.me/moycat_official", icon: "fa fa-podcast", label: "频道" },
@@ -81,7 +82,6 @@ export function renderAlbumsDocument(gallery: BuiltGallery): string {
   return renderDocument({
     content: `<div class="gallery-page-header">
         <h1 class="gallery-page-title">相簿</h1>
-        <p class="gallery-page-description">按相簿浏览照片。</p>
       </div>
       <div class="album-grid">
         ${gallery.albums
@@ -159,9 +159,9 @@ function renderDocument(options: {
       ${renderSidebar()}
       <main class="gallery-main" data-gallery-main>
         ${options.content}
+        ${renderFooter()}
       </main>
     </div>
-    ${renderAboutModal()}
   </body>
 </html>
 `;
@@ -169,6 +169,21 @@ function renderDocument(options: {
 
 function renderCover(): string {
   return `<div id="cover" style="background-image:url('/assets/images/cover.webp');"></div>`;
+}
+
+function renderFooter(): string {
+  return `<footer id="footer" class="main-content-wrap">
+    <span class="copyrights" xmlns:cc="https://creativecommons.org/ns#">
+        本站内容以
+        <a href="https://creativecommons.org/licenses/by-nc/4.0/deed.zh-hans" target="_blank" rel="license noopener noreferrer">
+            CC BY-NC 4.0
+        </a>
+        <img src="https://mirrors.creativecommons.org/presskit/icons/cc.svg">
+        <img src="https://mirrors.creativecommons.org/presskit/icons/by.svg">
+        <img src="https://mirrors.creativecommons.org/presskit/icons/nc.svg">
+        协议发布
+    </span>
+</footer>`;
 }
 
 function renderHeader(title: string): string {
@@ -215,29 +230,6 @@ function renderNavigationItem(item: NavigationItem): string {
               </li>`;
 }
 
-function renderAboutModal(): string {
-  return `<div id="about" role="dialog" aria-modal="true" aria-labelledby="about-card-name" aria-hidden="true" data-about-modal>
-      <div id="about-card" role="document">
-        <button id="about-btn-close" type="button" aria-label="关闭" data-about-close>
-          <i class="fa fa-times" aria-hidden="true"></i>
-        </button>
-        <img id="about-card-picture" src="/assets/images/avatar.webp" alt="头像">
-        <h4 id="about-card-name">Moycat</h4>
-        <div id="about-card-bio">${aboutBioHtml}</div>
-        <div id="about-card-job">
-          <i class="fa fa-briefcase" aria-hidden="true"></i>
-          <br>
-          ByteDance
-        </div>
-        <div id="about-card-location">
-          <i class="fa fa-map-marker-alt" aria-hidden="true"></i>
-          <br>
-          Bellevue, WA
-        </div>
-      </div>
-    </div>`;
-}
-
 function renderAlbumCard(
   album: BuiltGalleryAlbum,
   coverPhoto: BuiltGalleryPhoto | undefined
@@ -274,7 +266,7 @@ function renderPhotoGrid(photos: BuiltGalleryPhoto[], gallery: BuiltGallery): st
 }
 
 function renderPhotoTile(photo: BuiltGalleryPhoto, gallery: BuiltGallery): string {
-  const title = photo.title ?? photo.id;
+  const album = albumForPhoto(photo, gallery);
   const medium = thumbnailWithName(photo, "medium") ?? thumbnailWithName(photo, "large");
   const src = toSitePath(medium?.path ?? photo.thumbnailPath);
   const srcset = photo.thumbnails
@@ -282,18 +274,19 @@ function renderPhotoTile(photo: BuiltGalleryPhoto, gallery: BuiltGallery): strin
     .join(", ");
   const width = photo.renderedWidth === undefined ? "" : ` width="${photo.renderedWidth}"`;
   const height = photo.renderedHeight === undefined ? "" : ` height="${photo.renderedHeight}"`;
-  const overlayParts = [
-    formatChineseDate(photo.capturedAt),
-    photo.exif?.camera,
-    albumTitleForPhoto(photo, gallery)
-  ].filter((part): part is string => part !== undefined && part.length > 0);
+  const cameraLine = [photo.exif?.camera, album?.title].filter(isNonEmptyString).join(" · ");
+  const overlayLines = [formatChineseDate(photo.capturedAt), cameraLine].filter(isNonEmptyString);
+  const titleLine =
+    photo.title === undefined
+      ? ""
+      : `<span class="photo-tile__title">${escapeHtml(photo.title)}</span>`;
 
   return `<a class="photo-tile" href="${escapeAttribute(toSitePath(photo.originalPath))}" data-photo-id="${escapeAttribute(photo.id)}">
-          <img src="${escapeAttribute(src)}"${srcset.length === 0 ? "" : ` srcset="${escapeAttribute(srcset)}"`} sizes="(max-width: 900px) 100vw, 33vw" alt="${escapeAttribute(title)}" loading="lazy" decoding="async"${width}${height}>
+          <img src="${escapeAttribute(src)}"${srcset.length === 0 ? "" : ` srcset="${escapeAttribute(srcset)}"`} sizes="(max-width: 900px) 100vw, 33vw" alt="${escapeAttribute(photo.title ?? photo.id)}" loading="lazy" decoding="async"${width}${height}>
           <span class="photo-tile__overlay">
             <span>
-              <span class="photo-tile__title">${escapeHtml(title)}</span>
-              <span class="photo-tile__meta">${escapeHtml(overlayParts.join(" · "))}</span>
+              ${titleLine}
+              ${overlayLines.map((line) => `<span class="photo-tile__meta">${escapeHtml(line)}</span>`).join("\n              ")}
             </span>
           </span>
         </a>`;
@@ -318,32 +311,46 @@ function renderPhotoDialog(): string {
 }
 
 function serializePhotoForClient(photo: BuiltGalleryPhoto, gallery: BuiltGallery): ClientPhoto {
-  const title = photo.title ?? photo.id;
   const modalThumbnail = thumbnailWithName(photo, "large") ?? thumbnailWithName(photo, "medium");
 
   return {
+    alt: photo.title ?? photo.id,
     detailsHtml: renderPhotoDetails(photo, gallery),
     id: photo.id,
     modalSrc: toSitePath(modalThumbnail?.path ?? photo.thumbnailPath),
     originalPath: toSitePath(photo.originalPath),
-    title
+    ...(photo.title === undefined ? {} : { title: photo.title })
   };
 }
 
 function renderPhotoDetails(photo: BuiltGalleryPhoto, gallery: BuiltGallery): string {
+  const album = albumForPhoto(photo, gallery);
   const rows = [
-    ["说明", photo.description],
-    ["拍摄日期", formatChineseDate(photo.capturedAt)],
-    ["拍摄设备", photo.exif?.camera],
-    ["镜头", photo.exif?.lens],
-    ["曝光", formatExposure(photo)],
-    ["相簿", albumTitleForPhoto(photo, gallery)],
-    ["文件", photo.originalFilename]
-  ].filter((row): row is [string, string] => row[1] !== undefined && row[1].length > 0);
+    textDetailRow("说明", photo.description),
+    textDetailRow("日期", formatChineseDate(photo.capturedAt)),
+    textDetailRow("设备", photo.exif?.camera),
+    textDetailRow("镜头", photo.exif?.lens),
+    textDetailRow("曝光", formatExposure(photo)),
+    album === undefined
+      ? undefined
+      : {
+          label: "相簿",
+          valueHtml: `<a href="/${escapeAttribute(album.pagePath)}">${escapeHtml(album.title)}</a>`
+        }
+  ].filter((row): row is PhotoDetailRow => row !== undefined);
 
-  return rows
-    .map(([label, value]) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`)
-    .join("");
+  return rows.map((row) => `<dt>${escapeHtml(row.label)}</dt><dd>${row.valueHtml}</dd>`).join("");
+}
+
+function textDetailRow(label: string, value: string | undefined): PhotoDetailRow | undefined {
+  if (!isNonEmptyString(value)) {
+    return undefined;
+  }
+
+  return {
+    label,
+    valueHtml: escapeHtml(value)
+  };
 }
 
 function formatExposure(photo: BuiltGalleryPhoto): string | undefined {
@@ -354,21 +361,28 @@ function formatExposure(photo: BuiltGalleryPhoto): string | undefined {
   }
 
   const parts = [
-    exif.aperture === undefined ? undefined : `f/${exif.aperture}`,
+    exif.aperture === undefined ? undefined : `f/${formatDecimal(exif.aperture)}`,
     exif.shutterSpeed,
     exif.iso === undefined ? undefined : `ISO ${exif.iso}`,
-    exif.focalLengthMm === undefined ? undefined : `${exif.focalLengthMm}mm`
+    exif.focalLengthMm === undefined ? undefined : `${formatDecimal(exif.focalLengthMm)}mm`
   ].filter((part): part is string => part !== undefined);
 
   return parts.length === 0 ? undefined : parts.join(" ");
 }
 
-function albumTitleForPhoto(photo: BuiltGalleryPhoto, gallery: BuiltGallery): string | undefined {
+function formatDecimal(value: number): string {
+  return Number.isInteger(value) ? value.toString() : value.toFixed(2).replace(/\.?0+$/u, "");
+}
+
+function albumForPhoto(
+  photo: BuiltGalleryPhoto,
+  gallery: BuiltGallery
+): BuiltGalleryAlbum | undefined {
   if (photo.albumId === undefined) {
     return undefined;
   }
 
-  return gallery.albums.find((album) => album.id === photo.albumId)?.title;
+  return gallery.albums.find((album) => album.id === photo.albumId);
 }
 
 function thumbnailWithName(
@@ -388,6 +402,10 @@ function toSitePath(path: string): string {
   }
 
   return `/${path}`;
+}
+
+function isNonEmptyString(value: string | undefined): value is string {
+  return value !== undefined && value.length > 0;
 }
 
 function escapeHtml(value: string): string {

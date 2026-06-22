@@ -8,10 +8,10 @@ import { pathToFileURL } from "node:url";
 import { lookup as lookupMimeType } from "mime-types";
 
 import { loadEnvFiles } from "./env.js";
-import { buildGallery } from "./gallery-build.js";
+import { buildGallery, type GalleryBuildProgress } from "./gallery-build.js";
 import { loadProjectConfig } from "./project-config.js";
 import { uploadOriginalsToS3, type SyncOriginalsToS3Progress } from "./s3-upload.js";
-import { updateGallerySource } from "./source.js";
+import { updateGallerySource, type GallerySourceProgress } from "./source.js";
 
 interface BuildArgs {
   description?: string;
@@ -45,13 +45,15 @@ export async function runCli(args = process.argv.slice(2)): Promise<void> {
       const env = loadEnvFiles();
       const config = loadProjectConfig({ env });
       const description = options.description ?? config.description;
+      const progress = createGalleryBuildProgressReporter(process.stderr);
       await buildGallery({
         ...(description === undefined ? {} : { description }),
+        onProgress: progress.update,
         outputDir: options.outDir ?? config.outputDir,
         storage: config.storage,
         sourceDir: options.sourceDir ?? config.sourceDir,
         title: options.title ?? config.title
-      });
+      }).finally(progress.finish);
       console.log(`Wrote gallery site to ${options.outDir ?? config.outputDir}`);
       return;
     }
@@ -60,13 +62,15 @@ export async function runCli(args = process.argv.slice(2)): Promise<void> {
       const env = loadEnvFiles();
       const config = loadProjectConfig({ env });
       const outputDir = options.outDir ?? config.outputDir;
+      const progress = createGalleryBuildProgressReporter(process.stderr);
       await buildGallery({
         ...(config.description === undefined ? {} : { description: config.description }),
+        onProgress: progress.update,
         outputDir,
         sourceDir: options.sourceDir ?? config.sourceDir,
         title: options.title ?? config.title,
         useLocalOriginals: true
-      });
+      }).finally(progress.finish);
       await serveStaticSite(outputDir, options.port);
       return;
     }
@@ -75,7 +79,11 @@ export async function runCli(args = process.argv.slice(2)): Promise<void> {
       const env = loadEnvFiles();
       const config = loadProjectConfig({ env });
       const sourceDir = options.sourceDir ?? config.sourceDir;
-      const result = await updateGallerySource({ sourceDir });
+      const progress = createMetadataProgressReporter(process.stderr);
+      const result = await updateGallerySource({
+        onProgress: progress.update,
+        sourceDir
+      }).finally(progress.finish);
       console.log(
         `Updated ${sourceDir}: ${result.albums} albums, ${result.photos} photos, ${result.created.length} metadata files created`
       );
@@ -281,6 +289,96 @@ function createUploadProgressReporter(stream: ProgressStream): {
       rendered = true;
     }
   };
+}
+
+function createGalleryBuildProgressReporter(stream: ProgressStream): {
+  finish: () => void;
+  update: (progress: GalleryBuildProgress) => void;
+} {
+  return createProgressReporter(stream, (progress) => ({
+    completed: progress.completed,
+    label: progress.stage === "metadata" ? "Indexing metadata" : "Generating thumbnails",
+    total: progress.total,
+    ...(progress.current === undefined ? {} : { current: progress.current })
+  }));
+}
+
+function createMetadataProgressReporter(stream: ProgressStream): {
+  finish: () => void;
+  update: (progress: GallerySourceProgress) => void;
+} {
+  return createProgressReporter(stream, (progress) => ({
+    completed: progress.completed,
+    label: "Indexing metadata",
+    total: progress.total,
+    ...(progress.current === undefined ? {} : { current: progress.current })
+  }));
+}
+
+function createProgressReporter<TProgress>(
+  stream: ProgressStream,
+  toLineProgress: (progress: TProgress) => LineProgress
+): {
+  finish: () => void;
+  update: (progress: TProgress) => void;
+} {
+  let rendered = false;
+  let activeLabel: string | undefined;
+
+  return {
+    finish: () => {
+      if (stream.isTTY === true && rendered) {
+        stream.write("\n");
+      }
+    },
+    update: (progress) => {
+      if (stream.isTTY !== true) {
+        return;
+      }
+
+      const lineProgress = toLineProgress(progress);
+
+      if (activeLabel !== undefined && activeLabel !== lineProgress.label) {
+        stream.write("\n");
+      }
+
+      activeLabel = lineProgress.label;
+
+      const line = renderLineProgress(lineProgress, stream.columns ?? 80);
+
+      if (stream.clearLine !== undefined && stream.cursorTo !== undefined) {
+        stream.clearLine(0);
+        stream.cursorTo(0);
+        stream.write(line);
+      } else {
+        stream.write(`\r${line}`);
+      }
+
+      rendered = true;
+    }
+  };
+}
+
+interface LineProgress {
+  completed: number;
+  label: string;
+  total: number;
+  current?: string;
+}
+
+export function renderLineProgress(progress: LineProgress, columns: number): string {
+  const ratio = progress.total === 0 ? 1 : Math.min(progress.completed / progress.total, 1);
+  const percent = `${Math.round(ratio * 100)
+    .toString()
+    .padStart(3, " ")}%`;
+  const showCurrent = progress.current !== undefined && progress.completed < progress.total;
+  const suffix = ` ${percent} ${progress.completed}/${progress.total}${showCurrent ? ` ${progress.current}` : ""}`;
+  const barWidth = Math.max(10, Math.min(30, columns - progress.label.length - suffix.length - 4));
+  const filled = Math.round(barWidth * ratio);
+  const empty = barWidth - filled;
+  const bar = `[${"#".repeat(filled)}${"-".repeat(empty)}]`;
+
+  return `${progress.label} ${bar}${suffix}`;
 }
 
 function renderUploadProgress(progress: SyncOriginalsToS3Progress, columns: number): string {

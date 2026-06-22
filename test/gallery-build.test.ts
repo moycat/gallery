@@ -1,6 +1,6 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 
 import sharp from "sharp";
 import { afterEach, describe, expect, it } from "vitest";
@@ -15,13 +15,70 @@ afterEach(async () => {
   tempDirs.length = 0;
 });
 
-async function createTempWorkspace(): Promise<{ outputDir: string; sourceDir: string }> {
+async function createTempWorkspace(): Promise<{
+  cacheDir: string;
+  outputDir: string;
+  sourceDir: string;
+}> {
   const workspace = await mkdtemp(join(tmpdir(), "gallery-build-"));
   tempDirs.push(workspace);
   return {
+    cacheDir: join(workspace, ".gallery-cache"),
     outputDir: join(workspace, "dist"),
     sourceDir: join(workspace, "photos")
   };
+}
+
+async function listFiles(root: string): Promise<string[]> {
+  const files: string[] = [];
+
+  async function walk(dir: string): Promise<void> {
+    let entries;
+
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return;
+      }
+
+      throw error;
+    }
+
+    for (const entry of entries) {
+      const path = join(dir, entry.name);
+
+      if (entry.isDirectory()) {
+        await walk(path);
+        continue;
+      }
+
+      if (entry.isFile()) {
+        files.push(relative(root, path));
+      }
+    }
+  }
+
+  await walk(root);
+  return files.sort();
+}
+
+async function snapshotFiles(
+  root: string
+): Promise<{ file: string; mtimeMs: number; size: number }[]> {
+  const files = await listFiles(root);
+
+  return Promise.all(
+    files.map(async (file) => {
+      const details = await stat(join(root, file));
+
+      return {
+        file,
+        mtimeMs: details.mtimeMs,
+        size: details.size
+      };
+    })
+  );
 }
 
 describe("buildGallery", () => {
@@ -73,11 +130,7 @@ describe("buildGallery", () => {
     await expect(
       readFile(join(outputDir, "albums", "abc", "index.html"), "utf8")
     ).resolves.toContain("Square Photo");
-    expect(html).toContain('id="about"');
-    expect(html).toContain('href="#about"');
-    await expect(readFile(join(outputDir, "about", "index.html"), "utf8")).rejects.toThrow(
-      "ENOENT"
-    );
+    expect(html).toContain('href="https://blog.moy.cat"');
   });
 
   it("links originals to configured storage public URLs without copying originals into Pages output", async () => {
@@ -195,6 +248,82 @@ describe("buildGallery", () => {
     await expect(
       readFile(join(outputDir, "assets", "photos", "wide-large.webp"))
     ).resolves.toBeInstanceOf(Buffer);
+  });
+
+  it("reuses cached thumbnails when only the original mtime changes", async () => {
+    const { cacheDir, outputDir, sourceDir } = await createTempWorkspace();
+    const sourcePath = join(sourceDir, "wide.jpg");
+    await writeFixtureImage(sourcePath, { height: 900, width: 1600 });
+    await writeFile(
+      join(sourceDir, "wide.yml"),
+      "exif:\n  capturedAt: '2024-01-01T00:00:00Z'\n",
+      "utf8"
+    );
+
+    await buildGallery({ cacheDir, outputDir, sourceDir, title: "Moycat Gallery" });
+    const firstCacheSnapshot = await snapshotFiles(cacheDir);
+    expect(firstCacheSnapshot.length).toBeGreaterThan(0);
+
+    await rm(outputDir, { force: true, recursive: true });
+    await utimes(sourcePath, new Date("2030-01-01T00:00:00Z"), new Date("2030-01-01T00:00:00Z"));
+    await buildGallery({ cacheDir, outputDir, sourceDir, title: "Moycat Gallery" });
+
+    expect(await snapshotFiles(cacheDir)).toEqual(firstCacheSnapshot);
+    await expect(
+      readFile(join(outputDir, "assets", "photos", "wide-large.webp"))
+    ).resolves.toBeInstanceOf(Buffer);
+  });
+
+  it("invalidates cached thumbnails when the original content changes", async () => {
+    const { cacheDir, outputDir, sourceDir } = await createTempWorkspace();
+    const sourcePath = join(sourceDir, "wide.jpg");
+    await writeFixtureImage(sourcePath, { height: 900, width: 1600 });
+    await writeFile(
+      join(sourceDir, "wide.yml"),
+      "exif:\n  capturedAt: '2024-01-01T00:00:00Z'\n",
+      "utf8"
+    );
+
+    await buildGallery({ cacheDir, outputDir, sourceDir, title: "Moycat Gallery" });
+    const firstCacheFiles = await listFiles(cacheDir);
+    expect(firstCacheFiles.length).toBeGreaterThan(0);
+
+    await rm(outputDir, { force: true, recursive: true });
+    await writeFixtureImage(sourcePath, { height: 900, width: 1400 });
+    await buildGallery({ cacheDir, outputDir, sourceDir, title: "Moycat Gallery" });
+
+    const secondCacheFiles = await listFiles(cacheDir);
+    expect(secondCacheFiles.length).toBeGreaterThan(firstCacheFiles.length);
+    expect(secondCacheFiles).not.toEqual(firstCacheFiles);
+  });
+
+  it("reports per-photo metadata indexing and thumbnail progress", async () => {
+    const { outputDir, sourceDir } = await createTempWorkspace();
+    const progress: {
+      completed: number;
+      stage: string;
+      total: number;
+    }[] = [];
+    await writeFixtureImage(join(sourceDir, "first.jpg"));
+    await writeFixtureImage(join(sourceDir, "second.jpg"));
+
+    await buildGallery({
+      onProgress: (update) => progress.push(update),
+      outputDir,
+      sourceDir,
+      title: "Moycat Gallery"
+    });
+
+    expect(progress.filter((update) => update.stage === "metadata")).toEqual([
+      expect.objectContaining({ completed: 0, stage: "metadata", total: 2 }),
+      expect.objectContaining({ completed: 1, stage: "metadata", total: 2 }),
+      expect.objectContaining({ completed: 2, stage: "metadata", total: 2 })
+    ]);
+    expect(progress.filter((update) => update.stage === "photos")).toEqual([
+      expect.objectContaining({ completed: 0, stage: "photos", total: 2 }),
+      expect.objectContaining({ completed: 1, stage: "photos", total: 2 }),
+      expect.objectContaining({ completed: 2, stage: "photos", total: 2 })
+    ]);
   });
 
   it("validates configured album covers and falls back to the oldest album photo", async () => {

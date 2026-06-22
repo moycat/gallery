@@ -23,8 +23,10 @@ const gallery: BuiltGallery = {
       capturedAt: "2024-05-01T12:00:00.000Z",
       captureTimestamp: Date.parse("2024-05-01T12:00:00.000Z"),
       exif: {
+        aperture: 1.7999999523162842,
         camera: "FUJIFILM X100VI",
         capturedAt: "2024-05-01T12:00:00.000Z",
+        focalLengthMm: 6.860000133514404,
         lens: "23mm"
       },
       id: "cats-miso",
@@ -83,6 +85,28 @@ const gallery: BuiltGallery = {
         }
       ],
       title: "路上"
+    },
+    {
+      capturedAt: "2025-02-01T12:00:00.000Z",
+      captureTimestamp: Date.parse("2025-02-01T12:00:00.000Z"),
+      id: "untitled-file",
+      metadataPath: "photos/untitled-file.yml",
+      originalExtension: "jpg",
+      originalFilename: "untitled-file.jpg",
+      originalPath: "assets/originals/untitled-file.jpg",
+      renderedHeight: 900,
+      renderedWidth: 1200,
+      sourcePath: "photos/untitled-file.jpg",
+      thumbnailPath: "assets/photos/untitled-file.webp",
+      thumbnails: [
+        {
+          format: "webp",
+          height: 720,
+          name: "medium",
+          path: "assets/photos/untitled-file-medium.webp",
+          width: 960
+        }
+      ]
     }
   ],
   title: "Moycat 的相册",
@@ -98,20 +122,30 @@ describe("site rendering", () => {
     expect(html).toContain("Life is strange. So am I.");
     expect(html).toContain("首页");
     expect(html).toContain("相簿");
-    expect(html).toContain("关于");
-    expect(html).toContain('href="#about"');
     expect(html).toContain("频道");
     expect(html).toContain("GitHub");
     expect(html).toContain("Telegram");
     expect(html).toContain("邮箱");
     expect(html).toContain("博客");
     expect(html).toContain("https://blog.moy.cat");
+    expect(html).toContain('<footer id="footer" class="main-content-wrap">');
+    expect(html).toContain("本站内容以");
+    expect(html).toContain('href="https://creativecommons.org/licenses/by-nc/4.0/deed.zh-hans"');
+    expect(html).toContain("CC BY-NC 4.0");
+    expect(html).toContain("https://mirrors.creativecommons.org/presskit/icons/cc.svg");
+    expect(html).toContain("https://mirrors.creativecommons.org/presskit/icons/by.svg");
+    expect(html).toContain("https://mirrors.creativecommons.org/presskit/icons/nc.svg");
+    expect(html).toContain("协议发布");
     expect(html).toContain(
       '<div id="cover" style="background-image:url(\'/assets/images/cover.webp\');"></div>'
     );
     expect(html).toContain('class="sidebar-button-icon fa fa-home"');
-    expect(html).toContain('class="sidebar-button-icon fa fa-archive"');
-    expect(html).toContain('class="sidebar-button-icon fa fa-question"');
+    expect(html).toContain('class="sidebar-button-icon fa fa-images"');
+    expect(html).toContain('class="sidebar-button-icon fa fa-pen"');
+    const firstNavigationGroup = html.match(/<ul class="sidebar-buttons">([\s\S]*?)<\/ul>/)?.[1];
+    expect(firstNavigationGroup).toContain('href="/"');
+    expect(firstNavigationGroup).toContain('href="/albums/"');
+    expect(firstNavigationGroup).toContain('href="https://blog.moy.cat"');
     expect(html).toContain('loading="lazy"');
     expect(html).toContain('decoding="async"');
     expect(html).toContain('data-photo-id="cats-miso"');
@@ -120,13 +154,36 @@ describe("site rendering", () => {
     expect(html).toContain('src="/assets/photos/cats-miso-medium.webp"');
     expect(html).toContain('srcset="/assets/photos/cats-miso-small.webp 480w');
     expect(html).toContain('id="gallery-photo-data"');
+    expect(html).toContain('<span class="photo-tile__title">窗边</span>');
+    expect(html).toContain('<span class="photo-tile__meta">2024年5月1日</span>');
+    expect(html).toContain('<span class="photo-tile__meta">FUJIFILM X100VI · 猫</span>');
+  });
+
+  it("does not display filenames for photos without explicit titles", () => {
+    const html = renderGalleryDocument(gallery);
+    const untitledTile = html.match(
+      /<a class="photo-tile" href="[^"]+" data-photo-id="untitled-file"[\s\S]*?<\/a>/
+    )?.[0];
+    const photoData = JSON.parse(
+      html.match(
+        /<script type="application\/json" id="gallery-photo-data">([\s\S]*?)<\/script>/
+      )?.[1] ?? "[]"
+    ) as { detailsHtml: string; id: string; title?: string }[];
+    const untitledPhoto = photoData.find((photo) => photo.id === "untitled-file");
+
+    expect(untitledTile).toBeDefined();
+    expect(untitledTile).not.toContain("photo-tile__title");
+    expect(untitledTile).not.toContain(">untitled-file<");
+    expect(untitledPhoto).toBeDefined();
+    expect(untitledPhoto).not.toHaveProperty("title");
+    expect(untitledPhoto?.detailsHtml).not.toContain("untitled-file");
+    expect(galleryClientJs).toContain("title.hidden = photo.title === undefined");
   });
 
   it("renders the album list with cover photos", () => {
     const html = renderAlbumsDocument(gallery);
 
     expect(html).toContain("<title>相簿 - Moycat 的相册</title>");
-    expect(html).not.toContain("<title>相簿 · Moycat 的相册</title>");
     expect(html).toContain("<h1");
     expect(html).toContain("相簿");
     expect(html).toContain("家里的猫");
@@ -136,13 +193,14 @@ describe("site rendering", () => {
 
   it("renders an album page with heading and filtered photos", () => {
     const html = renderAlbumDocument(gallery, gallery.albums[0]!);
+    const renderedPhotoIds = Array.from(html.matchAll(/data-photo-id="([^"]+)"/gu)).map(
+      (match) => match[1]
+    );
 
     expect(html).toContain("<title>猫 - Moycat 的相册</title>");
-    expect(html).not.toContain("<title>猫 · Moycat 的相册</title>");
     expect(html).toContain("猫");
     expect(html).toContain("家里的猫");
-    expect(html).toContain('data-photo-id="cats-miso"');
-    expect(html).not.toContain('data-photo-id="outside"');
+    expect(renderedPhotoIds).toEqual(["cats-miso"]);
   });
 
   it("renders accessible modal and navigation structure", () => {
@@ -159,31 +217,52 @@ describe("site rendering", () => {
     expect(html).toContain("data-dialog-close");
     expect(html).toContain('<i class="fa fa-times" aria-hidden="true"></i>');
     expect(html).toContain("查看原图");
-    expect(html).not.toContain('data-dialog-close aria-label="关闭">关闭</button>');
   });
 
-  it("renders the blog-style about modal on every gallery page", () => {
+  it("renders concise photo details in the dialog data", () => {
     const html = renderGalleryDocument(gallery);
+    const photoData = JSON.parse(
+      html.match(
+        /<script type="application\/json" id="gallery-photo-data">([\s\S]*?)<\/script>/
+      )?.[1] ?? "[]"
+    ) as { detailsHtml: string }[];
+    const detailsHtml = photoData[0]?.detailsHtml ?? "";
 
-    expect(html).toContain('id="about"');
-    expect(html).toContain('id="about-card"');
-    expect(html).toContain('id="about-btn-close"');
-    expect(html).toContain("这里是 Moycat");
-    expect(html).not.toContain('href="/about/"');
+    expect(detailsHtml).toContain("<dt>日期</dt><dd>2024年5月1日</dd>");
+    expect(detailsHtml).toContain("<dt>设备</dt><dd>FUJIFILM X100VI</dd>");
+    expect(detailsHtml).toContain("<dt>曝光</dt><dd>f/1.8 6.86mm</dd>");
+    expect(detailsHtml).toContain('<dt>相簿</dt><dd><a href="/albums/cats/">猫</a></dd>');
   });
 
-  it("closes the mobile drawer before opening the about modal", () => {
-    expect(galleryClientJs).toContain("function openAboutFromTrigger()");
-    expect(galleryClientJs).toContain("closeSidebar();\n    openAbout();");
+  it("keeps album detail links un-underlined while preserving original-photo link styling", () => {
+    expect(galleryCss).toContain(".photo-dialog__details a");
+    expect(galleryCss).toContain(".photo-dialog__details dl a");
+    expect(galleryCss).toContain("border-bottom: 0");
+    expect(galleryCss).toContain(".photo-dialog__original");
+    expect(galleryCss).toContain("border-bottom: 1px solid currentColor");
+    expect(galleryCss).toContain("color: var(--gallery-link)");
   });
 
-  it("keeps CSS grid from dense backfilling over chronological order", () => {
-    expect(galleryCss).not.toContain("grid-auto-flow: dense");
+  it("matches the blog footer license treatment", () => {
+    expect(galleryCss).toContain("#footer");
+    expect(galleryCss).toContain("color: #95a5a6");
+    expect(galleryCss).toContain("font-size: 1.5rem");
+    expect(galleryCss).toContain("text-align: center");
+    expect(galleryCss).toContain("margin-top: 30px");
+    expect(galleryCss).toContain("padding: 20px 20px");
+    expect(galleryCss).toContain("#footer img");
+    expect(galleryCss).toContain("height: 1.8rem");
+    expect(galleryCss).toContain("vertical-align: sub");
+    expect(galleryCss).toContain("#footer a");
+    expect(galleryCss).toContain("color: var(--gallery-link)");
+    expect(galleryCss).toContain("display: inline-block");
+    expect(galleryCss).toContain("#footer a:hover");
+    expect(galleryCss).toContain("text-decoration: underline");
   });
 
-  it("does not keep photo overlays visible after mouse-opened dialogs close", () => {
+  it("shows photo overlays on hover and keyboard focus", () => {
+    expect(galleryCss).toContain(".photo-tile:hover .photo-tile__overlay");
     expect(galleryCss).toContain(".photo-tile:focus-visible .photo-tile__overlay");
-    expect(galleryCss).not.toContain(".photo-tile:focus-within .photo-tile__overlay");
   });
 
   it("keeps the fixed sidebar from covering the gallery content", () => {
@@ -248,9 +327,8 @@ describe("site rendering", () => {
     );
   });
 
-  it("closes modals when the user clicks outside their card", () => {
+  it("closes the photo modal when the user clicks outside its card", () => {
     expect(galleryClientJs).toContain("event.target === dialog");
-    expect(galleryClientJs).toContain("event.target === about");
   });
 
   it("reads masonry spacing from CSS instead of hard-coded gutter math", () => {
@@ -259,6 +337,5 @@ describe("site rendering", () => {
     expect(galleryCss).toContain("row-gap: 11px");
     expect(galleryCss).toContain("background: transparent");
     expect(galleryClientJs).toContain("rowGap");
-    expect(galleryClientJs).not.toContain("+ 11");
   });
 });

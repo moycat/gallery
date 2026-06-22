@@ -2,7 +2,7 @@
 
 TypeScript static gallery framework for camera photos, optional photo metadata, albums, EXIF extraction, thumbnail generation, and Cloudflare Pages deployment.
 
-The generated site is pure static HTML/CSS/vanilla JavaScript. It renders a Chinese timeline feed, album index, album detail pages, an about page, lazy-loaded responsive thumbnails, and modal photo details with original-photo links.
+The generated site is pure static HTML/CSS/vanilla JavaScript. It renders a Chinese timeline feed, album index, album detail pages, lazy-loaded responsive thumbnails, and modal photo details with original-photo links.
 
 ## Commands
 
@@ -17,8 +17,8 @@ The generated site is pure static HTML/CSS/vanilla JavaScript. It renders a Chin
 - `npm run upload` syncs source originals to an S3-compatible bucket and shows a progress bar in interactive terminals.
 - `npm run upload -- --prune` also deletes remote originals under the configured prefix when they no longer exist locally.
 - `npm run build` compiles TypeScript and writes the static site to `dist`.
-- `npm run dev` builds a local preview and serves it without uploading or deploying.
-- `npm run preview` serves `dist` with Wrangler Pages.
+- `npm run dev` builds a local preview with local original-photo links and serves it without uploading or deploying.
+- `npm run preview` serves the existing production-style `dist` with Wrangler Pages.
 - `npm run deploy` builds and deploys `dist` to Cloudflare Pages.
 - `npm run wrangler:types:check` verifies generated Cloudflare types are current.
 
@@ -81,14 +81,13 @@ The home feed and album pages sort photos by EXIF capture time in descending ord
 
 Run `npm run update` to create missing metadata placeholders and validate existing metadata. `npm run build` runs the same update step before generating responsive WebP thumbnails, copying originals, and writing the static site.
 
+Generated thumbnails are cached under `.gallery-cache/thumbnails` using the original file's SHA-256 content hash plus transform parameters. `npm run clean` does not remove this cache, so unchanged photos reuse thumbnails across builds even when `dist` is regenerated. Delete `.gallery-cache` manually when a full thumbnail rebuild is required.
+
 Generated routes:
 
 - `/` timeline of all photos.
 - `/albums/` album index.
 - `/albums/<album-id>/` album detail page.
-
-The about content is rendered as an inline modal opened from the sidebar, matching the blog
-interaction pattern rather than a separate route.
 
 ## Environment Configuration
 
@@ -103,7 +102,7 @@ S3_ORIGINAL_PREFIX=originals
 S3_PUBLIC_BASE_URL=https://media.example.com
 ```
 
-When `S3_PUBLIC_BASE_URL` is set, `npm run build` links originals to remote storage using content-addressed keys such as `https://media.example.com/originals/test-<sha256>.jpg` and does not copy originals into `dist`. When it is not set, build output uses local copied originals so `npm run dev` works without remote storage.
+When `S3_PUBLIC_BASE_URL` is set, `npm run build` links originals to remote storage using content-addressed keys such as `https://media.example.com/originals/test-<sha256>.jpg` and does not copy originals into `dist`. Run `npm run upload` before production-style preview or deploy so those remote original links exist. `npm run dev` always builds with local copied originals, so original-photo links work locally even when `S3_PUBLIC_BASE_URL` is configured.
 
 ## S3-Compatible Uploads
 
