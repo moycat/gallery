@@ -325,6 +325,12 @@ describe("site rendering", () => {
     expect(galleryCss).toMatch(
       /@media \(max-width: 767px\) \{[\s\S]*\.photo-dialog__image img \{[\s\S]*max-height: none[\s\S]*width: 100%/
     );
+    expect(galleryClientJs).toContain("function resetDialogScroll()");
+    expect(galleryClientJs).toContain("dialog.scrollTop = 0");
+    expect(galleryClientJs).toContain(
+      'image.addEventListener("load", resetDialogScroll, { once: true })'
+    );
+    expect(galleryClientJs).toContain("requestAnimationFrame(resetDialogScroll)");
   });
 
   it("closes the photo modal when the user clicks outside its card", () => {

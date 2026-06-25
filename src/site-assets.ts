@@ -808,6 +808,11 @@ export const galleryClientJs = String.raw`
   const original = dialog.querySelector("[data-dialog-original]");
   const close = dialog.querySelector("[data-dialog-close]");
 
+  function resetDialogScroll() {
+    dialog.scrollTop = 0;
+    dialog.scrollLeft = 0;
+  }
+
   function layoutMasonry() {
     document.querySelectorAll(".photo-tile").forEach((tile) => {
       const img = tile.querySelector("img");
@@ -835,6 +840,8 @@ export const galleryClientJs = String.raw`
       return;
     }
 
+    resetDialogScroll();
+    image.addEventListener("load", resetDialogScroll, { once: true });
     image.src = photo.modalSrc;
     image.alt = photo.alt;
 
@@ -852,6 +859,8 @@ export const galleryClientJs = String.raw`
     }
 
     dialog.showModal();
+    resetDialogScroll();
+    requestAnimationFrame(resetDialogScroll);
   }
 
   document.addEventListener("click", (event) => {
