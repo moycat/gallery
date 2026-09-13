@@ -469,6 +469,14 @@ img {
   border-bottom: 0;
 }
 
+.photo-dialog__actions {
+  align-items: center;
+  display: flex;
+  gap: 1.6rem;
+  justify-content: space-between;
+  margin-top: 1.6rem;
+}
+
 .photo-dialog__close {
   background: transparent;
   border: 0;
@@ -495,7 +503,7 @@ img {
   border-bottom: 1px solid currentColor;
   color: var(--gallery-link);
   display: inline-block;
-  margin-top: 1.6rem;
+  margin-top: 0;
 }
 
 @media (max-width: 1279px) {
@@ -733,7 +741,12 @@ img {
   }
 
   .photo-dialog__close {
-    display: none;
+    bottom: auto;
+    display: block;
+    margin: 0 0 0 auto;
+    position: static;
+    right: auto;
+    top: auto;
   }
 
   .photo-dialog__layout {

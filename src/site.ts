@@ -294,9 +294,6 @@ function renderPhotoTile(photo: BuiltGalleryPhoto, gallery: BuiltGallery): strin
 
 function renderPhotoDialog(): string {
   return `<dialog class="photo-dialog" data-photo-dialog aria-label="照片详情">
-        <button class="photo-dialog__close" type="button" data-dialog-close aria-label="关闭">
-          <i class="fa fa-times" aria-hidden="true"></i>
-        </button>
         <div class="photo-dialog__layout">
           <div class="photo-dialog__image">
             <img data-dialog-image alt="">
@@ -304,7 +301,12 @@ function renderPhotoDialog(): string {
           <aside class="photo-dialog__details">
             <h2 data-dialog-title></h2>
             <dl data-dialog-details></dl>
-            <a class="photo-dialog__original" data-dialog-original target="_blank" rel="noopener">查看原图</a>
+            <div class="photo-dialog__actions">
+              <a class="photo-dialog__original" data-dialog-original target="_blank" rel="noopener">查看原图</a>
+              <button class="photo-dialog__close" type="button" data-dialog-close aria-label="关闭">
+                <i class="fa fa-times" aria-hidden="true"></i>
+              </button>
+            </div>
           </aside>
         </div>
       </dialog>`;

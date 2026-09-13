@@ -216,6 +216,8 @@ describe("site rendering", () => {
     expect(html).toContain("data-photo-dialog");
     expect(html).toContain("data-dialog-close");
     expect(html).toContain('<i class="fa fa-times" aria-hidden="true"></i>');
+    expect(html.indexOf("data-dialog-original")).toBeLessThan(html.indexOf("data-dialog-close"));
+    expect(html).toContain('class="photo-dialog__actions"');
     expect(html).toContain("查看原图");
   });
 
@@ -241,6 +243,8 @@ describe("site rendering", () => {
     expect(galleryCss).toContain(".photo-dialog__original");
     expect(galleryCss).toContain("border-bottom: 1px solid currentColor");
     expect(galleryCss).toContain("color: var(--gallery-link)");
+    expect(galleryCss).toContain(".photo-dialog__actions");
+    expect(galleryCss).toContain("justify-content: space-between");
   });
 
   it("matches the blog footer license treatment", () => {
@@ -317,7 +321,13 @@ describe("site rendering", () => {
     );
     expect(galleryCss).toContain(".photo-dialog::-webkit-scrollbar");
     expect(galleryCss).toMatch(
-      /@media \(max-width: 767px\) \{[\s\S]*\.photo-dialog__close \{[\s\S]*display: none/
+      /@media \(max-width: 767px\) \{[\s\S]*\.photo-dialog__close \{[\s\S]*margin: 0 0 0 auto/
+    );
+    expect(galleryCss).toMatch(
+      /@media \(max-width: 767px\) \{[\s\S]*\.photo-dialog__close \{[\s\S]*position: static/
+    );
+    expect(galleryCss).toMatch(
+      /@media \(max-width: 767px\) \{[\s\S]*\.photo-dialog__close \{[\s\S]*right: auto/
     );
     expect(galleryCss).toMatch(
       /@media \(max-width: 767px\) \{[\s\S]*\.photo-dialog__image \{[\s\S]*background: transparent[\s\S]*min-height: 0/
