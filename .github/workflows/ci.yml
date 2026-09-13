@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
+      S3_ORIGINAL_PREFIX: ${{ vars.S3_ORIGINAL_PREFIX }}
       S3_PUBLIC_BASE_URL: ${{ vars.S3_PUBLIC_BASE_URL }}
 
     steps:
