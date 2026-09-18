@@ -18,6 +18,7 @@ export {
   renderIndexDocument
 } from "./site.js";
 export type {
+  ContentTranslations,
   AlbumMetadata,
   BuiltGallery,
   BuiltGalleryAlbum,

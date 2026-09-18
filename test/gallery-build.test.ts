@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdtemp, readdir, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
@@ -157,21 +158,31 @@ describe("buildGallery", () => {
 
   it("copies shared static assets for the generated site", async () => {
     const { outputDir, sourceDir } = await createTempWorkspace();
-    await writeFixtureImage(join(sourceDir, "test.jpg"));
+    await writeFixtureImage(join(sourceDir, "album", "test.jpg"));
     await writeFile(
-      join(sourceDir, "test.yml"),
+      join(sourceDir, "album", "test.yml"),
       "exif:\n  capturedAt: '2024-01-01T00:00:00Z'\n",
       "utf8"
     );
 
     await buildGallery({ outputDir, sourceDir, title: "Moycat Gallery" });
 
-    await expect(readFile(join(outputDir, "assets", "gallery.css"), "utf8")).resolves.toContain(
-      "font-family"
-    );
-    await expect(readFile(join(outputDir, "assets", "gallery.js"), "utf8")).resolves.toContain(
-      "gallery-photo-data"
-    );
+    const html = await readFile(join(outputDir, "index.html"), "utf8");
+    const albumsHtml = await readFile(join(outputDir, "albums", "index.html"), "utf8");
+    const albumHtml = await readFile(join(outputDir, "albums", "album", "index.html"), "utf8");
+    for (const [extension, expectedContent] of [
+      ["css", "font-family"],
+      ["js", "gallery-photo-data"]
+    ] as const) {
+      const match = html.match(new RegExp(`/assets/gallery\\.([a-f0-9]{16})\\.${extension}`));
+      expect(match).not.toBeNull();
+      const assetPath = match?.[0] ?? "";
+      const content = await readFile(join(outputDir, assetPath.slice(1)), "utf8");
+      expect(content).toContain(expectedContent);
+      expect(match?.[1]).toBe(createHash("sha256").update(content).digest("hex").slice(0, 16));
+      expect(albumsHtml).toContain(assetPath);
+      expect(albumHtml).toContain(assetPath);
+    }
     await expect(readFile(join(outputDir, "favicon.ico"))).resolves.toBeInstanceOf(Buffer);
     await expect(
       readFile(join(outputDir, "assets", "images", "avatar.webp"))

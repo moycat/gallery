@@ -4,7 +4,13 @@ import { basename, extname, join, relative } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 
-import type { GallerySource, GallerySourceAlbum, GallerySourcePhoto, PhotoExif } from "./types.js";
+import type {
+  ContentTranslations,
+  GallerySource,
+  GallerySourceAlbum,
+  GallerySourcePhoto,
+  PhotoExif
+} from "./types.js";
 
 export interface GallerySourceOptions {
   onProgress?: ((progress: GallerySourceProgress) => void) | undefined;
@@ -69,9 +75,24 @@ const exifSchema = z
   })
   .strict();
 
+const translationsSchema = z
+  .object({
+    ca: z
+      .object({
+        title: optionalTextSchema,
+        description: optionalTextSchema,
+        location: optionalTextSchema
+      })
+      .strict()
+      .optional()
+  })
+  .strict()
+  .optional();
+
 const albumMetadataSchema = z
   .object({
     coverPhotoId: optionalTextSchema,
+    translations: translationsSchema,
     description: optionalTextSchema,
     title: nonEmptyStringSchema,
     weight: z.number().finite().optional()
@@ -80,6 +101,7 @@ const albumMetadataSchema = z
 
 const photoMetadataSchema = z
   .object({
+    translations: translationsSchema,
     description: optionalTextSchema,
     exif: exifSchema.optional(),
     title: optionalTextSchema
@@ -87,12 +109,14 @@ const photoMetadataSchema = z
   .strict();
 
 type PhotoMetadataInput = {
+  translations?: ContentTranslations;
   description?: string;
   exif?: PhotoExif;
   title?: string;
 };
 
 type AlbumMetadataInput = {
+  translations?: ContentTranslations;
   coverPhotoId?: string;
   description?: string;
   title: string;
@@ -164,6 +188,7 @@ export async function readGallerySource(
         sourceDir: album.sourceDir,
         title: metadata.title,
         ...(metadata.coverPhotoId === undefined ? {} : { coverPhotoId: metadata.coverPhotoId }),
+        ...(metadata.translations === undefined ? {} : { translations: metadata.translations }),
         ...(metadata.description === undefined ? {} : { description: metadata.description }),
         ...(metadata.weight === undefined ? {} : { weight: metadata.weight })
       };
@@ -189,6 +214,7 @@ export async function readGallerySource(
         originalFilename: photo.originalFilename,
         sourcePath: photo.sourcePath,
         ...(photo.albumId === undefined ? {} : { albumId: photo.albumId }),
+        ...(metadata.translations === undefined ? {} : { translations: metadata.translations }),
         ...(metadata.description === undefined ? {} : { description: metadata.description }),
         ...(metadata.exif === undefined ? {} : { exif: metadata.exif }),
         ...(metadata.title === undefined ? {} : { title: metadata.title })
@@ -368,6 +394,9 @@ async function readAlbumMetadata(path: string): Promise<AlbumMetadataInput> {
   return {
     ...(parsed.data.coverPhotoId === undefined ? {} : { coverPhotoId: parsed.data.coverPhotoId }),
     title: parsed.data.title,
+    ...(parsed.data.translations === undefined
+      ? {}
+      : { translations: parsed.data.translations as ContentTranslations }),
     ...(parsed.data.description === undefined ? {} : { description: parsed.data.description }),
     ...(parsed.data.weight === undefined ? {} : { weight: parsed.data.weight })
   };
@@ -382,6 +411,9 @@ async function readPhotoMetadata(path: string): Promise<PhotoMetadataInput> {
   }
 
   return {
+    ...(parsed.data.translations === undefined
+      ? {}
+      : { translations: parsed.data.translations as ContentTranslations }),
     ...(parsed.data.description === undefined ? {} : { description: parsed.data.description }),
     ...(parsed.data.exif === undefined ? {} : { exif: normalizeExif(parsed.data.exif) }),
     ...(parsed.data.title === undefined ? {} : { title: parsed.data.title })
@@ -432,6 +464,10 @@ function createAlbumMetadataPlaceholder(albumId: string, coverPhotoId?: string):
   return [
     `title: ${albumId}`,
     "# description: Album description",
+    "# translations:",
+    "#   ca:",
+    "#     title: Títol de l’àlbum",
+    "#     description: Descripció de l’àlbum",
     coverPhotoId === undefined
       ? "# coverPhotoId: album-photo-id"
       : `# coverPhotoId: ${coverPhotoId}`,
@@ -444,6 +480,10 @@ function createPhotoMetadataPlaceholder(): string {
   return [
     "# title: Photo title",
     "# description: Photo description",
+    "# translations:",
+    "#   ca:",
+    "#     title: Títol de la foto",
+    "#     description: Descripció de la foto",
     "# exif:",
     "#   capturedAt: '2024-01-01T00:00:00Z'",
     "#   camera: Camera body",

@@ -16,6 +16,7 @@ import { getOriginalObjectInfo, hashFile } from "./originals.js";
 import { readGallerySource, updateGallerySource, type GallerySourceProgress } from "./source.js";
 import { renderAlbumDocument, renderAlbumsDocument, renderGalleryDocument } from "./site.js";
 import type {
+  ContentTranslations,
   BuiltGallery,
   BuiltGalleryAlbum,
   BuiltGalleryPhoto,
@@ -29,6 +30,7 @@ interface GalleryBuildLogger {
 }
 
 export interface GalleryBuildOptions {
+  translations?: ContentTranslations;
   cacheDir?: string;
   description?: string;
   logger?: GalleryBuildLogger;
@@ -123,6 +125,7 @@ export async function buildGallery(options: GalleryBuildOptions = {}): Promise<B
   });
 
   const gallery: BuiltGallery = {
+    ...(options.translations === undefined ? {} : { translations: options.translations }),
     albums,
     photos,
     title,
@@ -139,6 +142,32 @@ export async function buildGallery(options: GalleryBuildOptions = {}): Promise<B
     await mkdir(albumDir, { recursive: true });
     await writeFile(join(albumDir, "index.html"), renderAlbumDocument(gallery, album), "utf8");
   }
+
+  await mkdir(join(outputDir, "ca", "albums"), { recursive: true });
+  await writeFile(
+    join(outputDir, "ca", "index.html"),
+    renderGalleryDocument(gallery, "ca"),
+    "utf8"
+  );
+  await writeFile(
+    join(outputDir, "ca", "albums", "index.html"),
+    renderAlbumsDocument(gallery, "ca"),
+    "utf8"
+  );
+  for (const album of gallery.albums) {
+    const albumDir = join(outputDir, "ca", "albums", album.id);
+    await mkdir(albumDir, { recursive: true });
+    await writeFile(
+      join(albumDir, "index.html"),
+      renderAlbumDocument(gallery, album, "ca"),
+      "utf8"
+    );
+  }
+  await writeFile(
+    join(outputDir, "robots.txt"),
+    "User-agent: *\nDisallow: /ca/\nDisallow: /ca$\n",
+    "utf8"
+  );
 
   return gallery;
 }

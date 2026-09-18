@@ -2,7 +2,7 @@ import { copyFile, mkdir, readdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { galleryClientJs, galleryCss } from "./site-assets.js";
+import { galleryClientJs, galleryCss, galleryCssPath, galleryJsPath } from "./site-assets.js";
 
 const brandAssets = [
   "android-chrome-192x192.png",
@@ -18,8 +18,8 @@ export async function writeStaticAssets(outputDir: string): Promise<void> {
   const root = process.cwd();
 
   await mkdir(join(outputDir, "assets"), { recursive: true });
-  await writeFile(join(outputDir, "assets", "gallery.css"), galleryCss, "utf8");
-  await writeFile(join(outputDir, "assets", "gallery.js"), galleryClientJs, "utf8");
+  await writeFile(join(outputDir, galleryCssPath), galleryCss, "utf8");
+  await writeFile(join(outputDir, galleryJsPath), galleryClientJs, "utf8");
 
   for (const asset of brandAssets) {
     await copyFile(join(root, "assets", "brand", asset), join(outputDir, asset));

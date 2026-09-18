@@ -61,6 +61,15 @@ const albumMetadataSchema = z.object({
 });
 
 const galleryConfigSchema = z.object({
+  translations: z
+    .object({
+      ca: z
+        .object({ title: textSchema.optional(), description: textSchema.optional() })
+        .strict()
+        .optional()
+    })
+    .strict()
+    .optional(),
   title: textSchema,
   albums: z.array(albumMetadataSchema).default([]),
   contentDir: textSchema.default("photos"),

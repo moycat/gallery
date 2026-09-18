@@ -1,3 +1,7 @@
+export interface ContentTranslations {
+  ca?: { title?: string; description?: string; location?: string };
+}
+
 export interface ThumbnailSize {
   name: string;
   width: number;
@@ -38,6 +42,7 @@ export interface AlbumMetadata {
 }
 
 export interface GalleryConfig {
+  translations?: ContentTranslations;
   title: string;
   albums: AlbumMetadata[];
   contentDir: string;
@@ -49,6 +54,7 @@ export interface GalleryConfig {
 }
 
 export interface GalleryConfigInput {
+  translations?: ContentTranslations;
   title: string;
   albums?: AlbumMetadata[];
   contentDir?: string;
@@ -60,6 +66,7 @@ export interface GalleryConfigInput {
 }
 
 export interface GallerySourceAlbum {
+  translations?: ContentTranslations;
   coverPhotoId?: string;
   description?: string;
   id: string;
@@ -71,6 +78,7 @@ export interface GallerySourceAlbum {
 }
 
 export interface GallerySourcePhoto {
+  translations?: ContentTranslations;
   id: string;
   metadataPath: string;
   originalExtension: "jpg" | "jpeg" | "png";
@@ -111,6 +119,7 @@ export interface BuiltGalleryAlbum extends GallerySourceAlbum {
 }
 
 export interface BuiltGallery {
+  translations?: ContentTranslations;
   albums: BuiltGalleryAlbum[];
   photos: BuiltGalleryPhoto[];
   title: string;

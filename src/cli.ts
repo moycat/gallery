@@ -47,6 +47,7 @@ export async function runCli(args = process.argv.slice(2)): Promise<void> {
       const description = options.description ?? config.description;
       const progress = createGalleryBuildProgressReporter(process.stderr);
       await buildGallery({
+        ...(config.translations === undefined ? {} : { translations: config.translations }),
         ...(description === undefined ? {} : { description }),
         onProgress: progress.update,
         outputDir: options.outDir ?? config.outputDir,
@@ -64,6 +65,7 @@ export async function runCli(args = process.argv.slice(2)): Promise<void> {
       const outputDir = options.outDir ?? config.outputDir;
       const progress = createGalleryBuildProgressReporter(process.stderr);
       await buildGallery({
+        ...(config.translations === undefined ? {} : { translations: config.translations }),
         ...(config.description === undefined ? {} : { description: config.description }),
         onProgress: progress.update,
         outputDir,

@@ -1,4 +1,29 @@
+import { versionedAssetPath } from "./asset-version.js";
+
 export const galleryCss = String.raw`
+.language-switch {
+  position: fixed;
+  z-index: 1000;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 30px;
+  padding: 3px 5px;
+  border: 1px solid rgba(255,255,255,.8);
+  border-radius: 16px;
+  background: rgba(246,249,252,.88);
+  box-shadow: 0 3px 16px rgba(30,50,70,.15);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  font: 12px/1.2 system-ui, sans-serif;
+}
+.language-switch i { margin: 0 4px; color: #64748b; }
+.language-switch a { padding: 4px 8px; border-radius: 12px; color: #566579; text-decoration: none; }
+.language-switch a[aria-current="page"] { background: #52758a; color: #fff; }
+.language-switch a:hover { background: #dce7ed; color: #34495e; }
+.language-switch a:focus-visible { outline: 2px solid #349ef3; outline-offset: 2px; }
 :root {
   --gallery-bg: #fff;
   --gallery-body: #2c3e50;
@@ -871,6 +896,11 @@ export const galleryClientJs = String.raw`
       original.href = photo.originalPath;
     }
 
+    const photoHash = "#photo=" + encodeURIComponent(id);
+    history.replaceState(null, "", photoHash);
+    document.querySelectorAll(".language-switch a").forEach(link => {
+      link.hash = photoHash;
+    });
     dialog.showModal();
     resetDialogScroll();
     requestAnimationFrame(resetDialogScroll);
@@ -887,6 +917,13 @@ export const galleryClientJs = String.raw`
     openPhoto(trigger.dataset.photoId || "");
   });
 
+  if (location.hash.startsWith("#photo=")) {
+    try { openPhoto(decodeURIComponent(location.hash.slice(7))); } catch { /* Ignore malformed photo links. */ }
+  }
+  dialog.addEventListener("close", () => {
+    history.replaceState(null, "", location.pathname + location.search);
+    document.querySelectorAll(".language-switch a").forEach(link => { link.hash = ""; });
+  });
   close?.addEventListener("click", () => dialog.close());
   dialog.addEventListener("click", (event) => {
     if (event.target === dialog) {
@@ -901,3 +938,6 @@ export const galleryClientJs = String.raw`
   layoutMasonry();
 })();
 `;
+
+export const galleryCssPath = versionedAssetPath("assets/gallery.css", galleryCss);
+export const galleryJsPath = versionedAssetPath("assets/gallery.js", galleryClientJs);

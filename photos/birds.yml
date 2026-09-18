@@ -2,3 +2,7 @@ title: 鸟
 # description: Album description
 # coverPhotoId: birds-813A970D-65A7-4A61-9547-C0F7876F4D00-41955-00001220FBA831AF
 # weight: 0
+
+translations:
+  ca:
+    title: Ocells
