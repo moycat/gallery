@@ -3,27 +3,94 @@ import { versionedAssetPath } from "./asset-version.js";
 export const galleryCss = String.raw`
 .language-switch {
   position: fixed;
-  z-index: 1000;
-  right: max(18px, env(safe-area-inset-right));
-  bottom: max(18px, env(safe-area-inset-bottom));
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  z-index: 15;
   display: flex;
   align-items: center;
-  gap: 3px;
-  height: 30px;
-  padding: 3px 5px;
-  border: 1px solid rgba(255,255,255,.8);
-  border-radius: 16px;
-  background: rgba(246,249,252,.88);
-  box-shadow: 0 3px 16px rgba(30,50,70,.15);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  font: 12px/1.2 system-ui, sans-serif;
+  padding: 2px;
+  border: 1px solid rgba(255,255,255,.65);
+  border-radius: 999px;
+  background: rgba(250,250,250,.94);
+  box-shadow: 0 6px 24px rgba(4,26,50,.22);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  font-family: system-ui, sans-serif;
 }
-.language-switch i { margin: 0 4px; color: #64748b; }
-.language-switch a { padding: 4px 8px; border-radius: 12px; color: #566579; text-decoration: none; }
-.language-switch a[aria-current="page"] { background: #52758a; color: #fff; }
-.language-switch a:hover { background: #dce7ed; color: #34495e; }
-.language-switch a:focus-visible { outline: 2px solid #349ef3; outline-offset: 2px; }
+.language-switch-trigger {
+  -webkit-appearance: none;
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #0c4177;
+  cursor: pointer;
+}
+.language-switch-icon { width: 16px; height: 16px; }
+.language-switch-options {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 300px;
+  margin-left: 4px;
+  overflow: hidden;
+  opacity: 1;
+  visibility: visible;
+  transition: max-width .25s ease, margin-left .25s ease, opacity .2s ease, visibility 0s;
+}
+.language-switch.is-collapsed .language-switch-options {
+  max-width: 0;
+  margin-left: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: max-width .25s ease, margin-left .25s ease, opacity .2s ease, visibility 0s .25s;
+}
+.language-switch.is-collapsed:is(:focus-within, .is-open) .language-switch-options {
+  max-width: 300px;
+  margin-left: 4px;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: max-width .25s ease, margin-left .25s ease, opacity .2s ease, visibility 0s;
+}
+@media (hover: hover) {
+  .language-switch.is-collapsed:hover .language-switch-options {
+    max-width: 300px;
+    margin-left: 4px;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition: max-width .25s ease, margin-left .25s ease, opacity .2s ease, visibility 0s;
+  }
+}
+.language-switch a {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 2px 14px;
+  border-radius: 999px;
+  color: #0c4177;
+  font-size: 14px;
+  line-height: 1.25;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  flex: none;
+}
+.language-switch a:hover { background: #e4ecf3; }
+.language-switch a[aria-current="page"] { background: #0c4177; color: #fff; }
+.language-switch a:focus-visible, .language-switch-trigger:focus-visible { outline: 2px solid #c44132; outline-offset: 2px; }
 :root {
   --gallery-bg: #fff;
   --gallery-body: #2c3e50;
@@ -831,6 +898,60 @@ export const galleryClientJs = String.raw`
       closeSidebar();
     }
   });
+
+  const languageSwitches = document.querySelectorAll(".language-switch");
+
+  function syncLanguageSwitch(switcher) {
+    const hovered = window.matchMedia("(hover: hover)").matches && switcher.matches(":hover");
+    const expanded = !switcher.classList.contains("is-collapsed") ||
+      switcher.classList.contains("is-open") || switcher.matches(":focus-within") || hovered;
+    switcher.querySelector(".language-switch-trigger")?.setAttribute("aria-expanded", String(expanded));
+  }
+
+  function collapseLanguageSwitches() {
+    if (window.scrollY <= 0) return;
+    languageSwitches.forEach((switcher) => {
+      switcher.classList.add("is-collapsed");
+      syncLanguageSwitch(switcher);
+    });
+    window.removeEventListener("scroll", collapseLanguageSwitches);
+  }
+
+  languageSwitches.forEach((switcher) => {
+    const trigger = switcher.querySelector(".language-switch-trigger");
+    switcher.addEventListener("mouseenter", () => syncLanguageSwitch(switcher));
+    switcher.addEventListener("mouseleave", () => syncLanguageSwitch(switcher));
+    switcher.addEventListener("focusin", () => syncLanguageSwitch(switcher));
+    switcher.addEventListener("focusout", () => requestAnimationFrame(() => syncLanguageSwitch(switcher)));
+    trigger?.addEventListener("click", (event) => {
+      if (!switcher.classList.contains("is-collapsed")) return;
+      if (event.detail === 0) {
+        syncLanguageSwitch(switcher);
+        return;
+      }
+      if (window.matchMedia("(hover: hover)").matches) {
+        switcher.classList.remove("is-open");
+        trigger.blur();
+        syncLanguageSwitch(switcher);
+        return;
+      }
+      switcher.classList.toggle("is-open");
+      trigger.blur();
+      syncLanguageSwitch(switcher);
+    });
+  });
+
+  document.addEventListener("pointerdown", (event) => {
+    languageSwitches.forEach((switcher) => {
+      if (event.target instanceof Node && !switcher.contains(event.target)) {
+        switcher.classList.remove("is-open");
+        if (switcher.contains(document.activeElement)) document.activeElement.blur();
+        syncLanguageSwitch(switcher);
+      }
+    });
+  });
+  window.addEventListener("scroll", collapseLanguageSwitches, { passive: true });
+  collapseLanguageSwitches();
 
   const dataElement = document.getElementById("gallery-photo-data");
   const dialog = document.querySelector("[data-photo-dialog]");

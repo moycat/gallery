@@ -504,8 +504,12 @@ function escapeScriptJson(value: string): string {
 
 function renderLanguageSwitch(path: string, language: Language): string {
   return `<nav class="language-switch" aria-label="${strings(language).switchLanguage}">
-    <i class="fa fa-language" aria-hidden="true"></i>
-    <a href="${escapeAttribute(languagePath(path, "zh"))}" lang="zh-Hans" hreflang="zh-Hans"${language === "zh" ? ' aria-current="page"' : ""}>中文</a>
-    <a href="${escapeAttribute(languagePath(path, "ca"))}" lang="ca" hreflang="ca"${language === "ca" ? ' aria-current="page"' : ""}>Català</a>
+    <button class="language-switch-trigger" type="button" aria-label="${strings(language).switchLanguage}" aria-expanded="true">
+      <svg class="language-switch-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18M5 6.5h14M5 17.5h14"/></svg>
+    </button>
+    <span class="language-switch-options">
+      <a href="${escapeAttribute(languagePath(path, "zh"))}" lang="zh-Hans" hreflang="zh-Hans"${language === "zh" ? ' aria-current="page"' : ""}>中文</a>
+      <a href="${escapeAttribute(languagePath(path, "ca"))}" lang="ca" hreflang="ca"${language === "ca" ? ' aria-current="page"' : ""}>Català</a>
+    </span>
   </nav>`;
 }
